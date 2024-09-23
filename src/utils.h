@@ -1,0 +1,18 @@
+#pragma once
+
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdbool.h>
+
+typedef uint8_t u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
+
+#define GET_BIT(n, bit) ((n >> bit) & 1)
+#define SET_BIT(n, bit, value) (n = (n & ~(1 << bit)) | (value << bit))
+#define IS_IN_RANGE(n, min, max) (n >= min && n <= max)
+
+void delay(u32 ms);
