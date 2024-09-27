@@ -2,11 +2,12 @@
 
 #include <utils.h>
 typedef enum{RUN, PAUSE, STOP, HALT, QUIT} State;
+typedef enum {NONE, PRINT, FULL} DebugMode;
 typedef struct{
     State state;
     u64 ticks;
-} emu_data;
+} EmuData;
 
-int emu_run(int argc, char **argv);
+int emuRun(int argc, char **argv);
 
-emu_data *emu_get_data();
+EmuData *emuGetData();

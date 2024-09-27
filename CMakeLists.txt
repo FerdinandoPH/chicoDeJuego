@@ -30,8 +30,17 @@ else()
     find_package(SDL2 REQUIRED)
     find_package(SDL2_ttf REQUIRED)
 endif()
-add_subdirectory(src)
-add_executable(chicoDeJuego ${MAIN_SOURCE})
+add_subdirectory(${CMAKE_SOURCE_DIR}/src)
+include_directories(${CMAKE_SOURCE_DIR}/src)
+file(GLOB_RECURSE SRC_FILES ${CMAKE_SOURCE_DIR}/src/*.c ${CMAKE_SOURCE_DIR}/src/*.h)
+include_directories(${SDL2_INCLUDE_DIRS})
+include_directories(${SDL2_TTF_INCLUDE_DIRS})
+add_executable(chicoDeJuego ${MAIN_SOURCE} ${SRC_FILES})
+target_link_libraries(chicoDeJuego ${SDL2_LIBRARIES} ${SDL2_TTF_LIBRARIES})
+install(TARGETS chicoDeJuego
+RUNTIME DESTINATION bin
+LIBRARY DESTINATION lib
+ARCHIVE DESTINATION lib)
 if (WIN32)
 
     if (${CMAKE_SIZEOF_VOID_P} MATCHES 8)

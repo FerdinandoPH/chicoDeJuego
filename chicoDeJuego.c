@@ -41,5 +41,5 @@ int main(int argc, char **argv) {
             }
         }
     #endif
-    return emu_run(argc, argv);
+    return emuRun(argc, argv);
 }

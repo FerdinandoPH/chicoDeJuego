@@ -4,7 +4,7 @@ typedef struct {
     char filename[1024];
     u32 cartSize;
     u8 *cartData;
-    cartHeader *header;
+    CartHeader *header;
 }CartData;
 
 static CartData cart;
@@ -118,7 +118,7 @@ const char *getCartTypeName(){
     return "???";
 }
 
-bool cart_load(char *filename, Memory *mem, u16 from, u16 to){
+bool cartLoad(const char *filename, Memory *mem, u16 from, u16 to){
     FILE *fp = fopen(filename, "rb");
     if (fp == NULL){
         printf("Error reading %s\n", filename);
@@ -138,10 +138,13 @@ bool cart_load(char *filename, Memory *mem, u16 from, u16 to){
     fread(cart.cartData, cart.cartSize, 1, fp);
     fclose(fp);
 
-    cart.header = (cartHeader*)(cart.cartData+0x100);
+    cart.header = (CartHeader*)(cart.cartData+0x100);
     cart.header->title[15] = 0;
+    CartHeader *header = cart.header;
     for (u16 i = from; i<=to; i++){
-        mem_write(mem, i, cart.cartData[i], false);
+        memWrite(mem, i, cart.cartData[i], false);
     }
+
+    printf("%s\n",cart.header->title);
     return true;
 }
