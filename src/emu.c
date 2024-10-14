@@ -7,7 +7,6 @@
 #include <SDL2/SDL_ttf.h>
 
 static EmuData emuData;
-Memory mem;
 DebugMode dbg_level = FULL;
 void delay(u32 ms){
     SDL_Delay(ms);
@@ -75,9 +74,11 @@ int emuRun(int argc, char **argv){
                 }
             }
         }
-        if(!cpuStep()){
-            printf("CPU error\n");
-            return 3;
+        if (emuData.state == RUN){
+            if(!cpuStep()){
+                printf("CPU error\n");
+                return 3;
+            }
         }
         emuData.ticks++;
     }

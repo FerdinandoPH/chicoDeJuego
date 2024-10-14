@@ -16,7 +16,7 @@
 
         // Crear el proceso
         if (!CreateProcess(NULL, cmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
-            printf("Error ejecutando el comando: %s\n", proc);
+            printf("Error running the following command: %s\n", proc);
             return;
         }
 
