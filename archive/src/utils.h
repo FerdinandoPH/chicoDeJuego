@@ -7,7 +7,7 @@
 #include <stdbool.h>
 #ifdef _WIN32
     #include <windows.h>
-    void createProcess(const char *proc);
+    void createProcess();
 #endif
 typedef uint8_t u8;
 typedef uint16_t u16;

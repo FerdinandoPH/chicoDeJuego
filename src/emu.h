@@ -1,15 +1,4 @@
 #pragma once
+typedef enum {NO_DBG, PRINT_DBG, FULL_DBG} Debug_mode;
 
-#include <utils.h>
-#include <mem.h>
-typedef enum{RUN, PAUSE, STOP, HALT, QUIT} State;
-typedef enum {NONE, PRINT, FULL} DebugMode;
-typedef struct{
-    State state;
-    u64 ticks;
-} EmuData;
-
-int emuRun(int argc, char **argv);
-static Memory mem;
-EmuData *emuGetData();
-void cycle(int cycles);
+int emu_run(int argc, char **argv);

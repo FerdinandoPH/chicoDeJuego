@@ -1,5 +1,6 @@
 #include <emu.h>
 #ifdef _WIN32
+
     #include <windows.h>
     #include <commdlg.h>
     char* open_file_dialog() {
@@ -41,5 +42,5 @@ int main(int argc, char **argv) {
             }
         }
     #endif
-    return emuRun(argc, argv);
+    return emu_run(argc, argv);
 }
