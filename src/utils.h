@@ -1,10 +1,13 @@
 #pragma once
-
+#include <cstdint>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <stdbool.h>
+#include <string>
+#include <iomanip>
+#include <variant>
+
 #ifdef _WIN32
     #include <windows.h>
     void createProcess(const char *proc);
@@ -20,3 +23,13 @@ typedef uint64_t u64;
 #define MIN(a, b) (a < b ? a : b)
 #define MAX(a, b) (a > b ? a : b)
 void delay(u32 ms);
+template <typename T>
+std::string numToHexString(T value, int width=0){ 
+    std::ostringstream oss;
+    oss << std::hex << std::uppercase;
+    if (width>1)
+        oss << std::setw(width) << std::setfill('0') << value;
+    else
+        oss << std::setw(1) << std::setfill('0') << value;
+    return "0x"+oss.str();
+}

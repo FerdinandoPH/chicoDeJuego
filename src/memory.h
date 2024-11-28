@@ -33,15 +33,16 @@ class Memory {
         };
     public:
         Cart_header* rom_header;
-        
+        bool is_protected = false;
         Memory();
-        ~Memory();
         u8 readX(u16 address);
         void writeX(u16 address, u8 data);
+        void writeX(u16 address, u16 data);
         u8 read(u16 address, bool from_cpu);
         void write(u16 address, u8 data, bool from_cpu);
         Proxy operator[](u16 address) { return Proxy(*this, address); }
         bool load_rom(const char* filename);
         void dump();
+        void reset();
 
 };

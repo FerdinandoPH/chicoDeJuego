@@ -20,6 +20,9 @@
                     "description": "Habilitar la impresión de la pila",
                     "text": "-enable-pretty-printing",
                     "ignoreFailures": true
+                },
+                {
+                    "text": "set charset UTF-8"
                 }
             ],
         }

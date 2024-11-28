@@ -6,23 +6,28 @@
 Memory::Memory() {
     memset(_mem, 0, sizeof(_mem));
 }
-Memory::~Memory() {
-}
-void Memory::write(uint16_t address, uint8_t data, bool from_cpu) {
+
+void Memory::write(u16 address, u8 data, bool from_cpu) {
+    from_cpu = from_cpu && this->is_protected;
     _mem[address] = data;
 }
 
-uint8_t Memory::read(uint16_t address, bool from_cpu) {
+u8 Memory::read(u16 address, bool from_cpu) {
+    from_cpu = from_cpu && this->is_protected;
     return _mem[address];
 }
 
-uint8_t Memory::readX(uint16_t address) {
+u8 Memory::readX(u16 address) {
     return this->read(address, false);
 }
 
-void Memory::writeX(uint16_t address, uint8_t data) {
+void Memory::writeX(u16 address, u8 data) {
     this->write(address, data, false);
 }
+void Memory::writeX(u16 address, u16 data) {
+    this->write(address, static_cast<u8>(data & 0xFF), false);
+}
+
 
 bool Memory::load_rom(const char* filename) {
     FILE* file = fopen(filename, "rb");
@@ -33,7 +38,7 @@ bool Memory::load_rom(const char* filename) {
         if (_rom) {
             free(_rom);
         }
-        _rom = (uint8_t*)malloc(size);
+        _rom = (u8*)malloc(size);
         fread(_rom, 1, size, file);
         fclose(file);
         this->rom_header = (Cart_header*)(_rom + 0x100);
