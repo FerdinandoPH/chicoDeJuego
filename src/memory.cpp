@@ -5,6 +5,7 @@
 #include <stdlib.h>
 Memory::Memory() {
     memset(_mem, 0, sizeof(_mem));
+    this->reset();
 }
 
 void Memory::write(u16 address, u8 data, bool from_cpu) {
@@ -64,4 +65,8 @@ void Memory::dump() {
     else {
         printf("Error writing mem.hexd\n");
     }
+}
+
+void Memory::reset(){
+    return;
 }

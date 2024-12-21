@@ -15,11 +15,13 @@ void delay(u32 ms){
     SDL_Delay(ms);
 }
 void emu_reset(){
-    delete cpu;
-    delete memory;
-
-    memory = new Memory();
-    cpu = new Cpu(*memory);
+    ticks = 0;
+    memory->reset();
+    cpu->reset();
+}
+void debug_print(){
+    std::cout<<"Ticks: "<<ticks<<std::endl;
+    std::cout<<cpu->toString()<<std::endl;
 }
 int emu_run(int argc, char** argv){
     
@@ -33,13 +35,12 @@ int emu_run(int argc, char** argv){
 
     
     while(cpu->state != QUIT){
-        if(cpu->state == PAUSE){
+        if(cpu->state == PAUSED){
             delay(10);
             continue;
         }
         if(dbg_level == PRINT_DBG || dbg_level == FULL_DBG){
-            std::cout<<"Ticks: "<<ticks<<std::endl;
-            std::cout<<cpu->toString()<<std::endl;
+            debug_print();
             if(dbg_level == FULL_DBG){
                 bool exit = false;
                 while(!exit){
@@ -67,10 +68,12 @@ int emu_run(int argc, char** argv){
                             cpu->state = QUIT;
                             break;
                         case 'c':
-                            cpu->state = RUN;
+                            cpu->state = RUNNING;
                             break;
                         case 'r':
+                            printf("Resetting...\n");
                             emu_reset();
+                            debug_print();
                             break;
                         case 'm':
                             memory->dump();
@@ -93,3 +96,4 @@ void run_ticks(int ticks_to_run){
         ticks++;
     }
 }
+

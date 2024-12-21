@@ -4,13 +4,19 @@
 #include <map>
 #include <algorithm>
 #include <string>
-typedef enum {RUN, PAUSE, STOP, HALT, QUIT} Cpu_State;
+typedef enum {RUNNING, PAUSED, STOPPED, HALTED, QUIT} Cpu_State;
 
 class Memory;
 //typedef enum {IMM, REG, MEM, REG_IMM} Addr_mode;
-enum class Addr_mode{IMPL, IMM8, IMMe8, IMM16, REG, REG16, REG16_PLUS_IMMe8, MEM_REG, MEM_REG_INC, MEM_REG_DEC, MEM_IMM16, HRAM_PLUS_IMM8, HRAM_PLUS_C};
+enum class Addr_mode{IMPL, IMPL_SHOW, IMM8, IMMe8, IMM16, REG, REG16, REG16_PLUS_IMMe8, MEM_REG, MEM_REG_INC, MEM_REG_DEC, MEM16_REG, MEM_IMM16, HRAM_PLUS_IMM8, HRAM_PLUS_C};
 //typedef enum {ALWAYS, Z, NZ, C, NC} Cond;
 enum class Cond{ALWAYS, Z, NZ, C, NC};
+enum class Flag{Z, N, H, C};
+extern std::map<Cpu_State, std::string> cpu_state_names;
+extern std::map<Flag, u16> flag_despl;
+extern std::map<Flag,std::string> flag_names;
+extern Flag flag_arr[];
+extern int size_flag_arr;
 //typedef enum {REG_A, REG_F, REG_B, REG_C, REG_D, REG_E, REG_H, REG_L, REG_SP, REG_PC, REG_AF, BC, DE, HL} Reg;
 typedef enum {A, F, B, C, D, E, H, L, SP, PC, AF, BC, DE, HL, NO_REG} Reg;
 extern Reg reg_arr[];
@@ -134,6 +140,16 @@ class Reg_dict {
         Proxy operator[](Reg reg) {
             return Proxy(*this, reg);
         }
+        bool get_flag(Flag flag) {
+            return (regs[F] >> flag_despl[flag]) & 1;
+        }
+        void set_flag(Flag flag, bool value) {
+            if (value) {
+                regs[F] |= 1 << flag_despl[flag];
+            } else {
+                regs[F] &= ~(1 << flag_despl[flag]);
+            }
+        }
 
 };
 
@@ -144,12 +160,19 @@ typedef struct{
     Operand dest = {Addr_mode::IMPL, NO_REG, 0};
     Operand src = {Addr_mode::IMPL, NO_REG, 0};
     Cond cond = Cond::ALWAYS;
+    int variant = 0; 
 
 } Instr_args;
 typedef struct{
     Instr_args args;
     void (Cpu::*execute)(Instr_args args);
 } Instr;
+enum class HALT_SUBSTATE{NONE, IME_SET, NONE_PENDING, SOME_PENDING};
+typedef struct{
+    u8 IE;
+    u8 IF;
+    u8 INT;
+} Int_Info;
 class Cpu{
     private:
         Memory& mem;
@@ -157,30 +180,48 @@ class Cpu{
         void write_to_operand_8bit(Operand &op, u16 value);
         void write_to_operand_16bit(Operand &op, u16 value);
         void write_to_operand(Operand &op, u16 value, Addr_mode src_addr = Addr_mode::IMPL);
+        bool check_cond(Cond cond);
         std::string operand_toString(Operand op);
         std::string instr_toString(Instr instr);
         static std::map<u8, Instr> instr_map;
         static std::map<u8, Instr> instr_map_prefix;
         #pragma region All_instructions
             void noImpl(Instr_args args);
+            void X_X(Instr_args args);
             void NOP(Instr_args args);
+            void STOP(Instr_args args);
+            void HALT(Instr_args args);
+            void DI(Instr_args args);
+            void EI(Instr_args args);
             void LD(Instr_args args);
-            void INC(Instr_args args);
-            void DEC(Instr_args args);
-            void RLC(Instr_args args);
+            void PUSH_POP(Instr_args args);
             void ADD(Instr_args args);
             void SUB(Instr_args args);
+            void AND(Instr_args args);
+            void OR(Instr_args args);
+            void XOR(Instr_args args);
+            void CP(Instr_args args);
+            void CPL(Instr_args args);
             void JP(Instr_args args);
+            void ROT(Instr_args args);
+            void DAA(Instr_args args);
+            void SCF(Instr_args args);
+            void CCF(Instr_args args);
         #pragma endregion
     public:
-        Cpu_State state = RUN;
+        Cpu_State state = RUNNING;
+        bool IME = false;
+        u8 IME_pending;
+        HALT_SUBSTATE halt_substate;
         u8 opcode;
         u16* src;
         u16* dest;
         Reg_dict regs;
         Cpu(Memory& mem);
         bool step();
-
+        Int_Info get_INTs();
+        void set_IE(u16 value);
+        void set_IF(u16 value);
 
         std::string toString();
         
