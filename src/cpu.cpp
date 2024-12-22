@@ -69,7 +69,6 @@ std::map<u8,Instr> Cpu::instr_map = {
     {0x26, (Instr){(Instr_args){"LD", 0x26, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMM8}}, &Cpu::LD}}, //OK
     {0x27, (Instr){(Instr_args){"DAA", 0x27}, &Cpu::DAA}},
     {0x28, (Instr){(Instr_args){"JR", 0x28, (Operand){Addr_mode::IMMe8}, (Operand){Addr_mode::IMPL, NO_REG, 1}, Cond::Z}, &Cpu::JP}},
-
     {0x29, (Instr){(Instr_args){"ADD", 0x29, (Operand){Addr_mode::REG16, HL}, (Operand){Addr_mode::REG16, HL}}, &Cpu::ADD}},
     {0x2A, (Instr){(Instr_args){"LD", 0x2A, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::MEM_REG_INC, HL, 0}}, &Cpu::LD}}, //OK
     {0x2B, (Instr){(Instr_args){"DEC", 0x2B, (Operand){Addr_mode::REG16, HL}, (Operand){Addr_mode::IMPL, NO_REG, 1}, Cond::ALWAYS, 2}, &Cpu::SUB}},
@@ -78,13 +77,13 @@ std::map<u8,Instr> Cpu::instr_map = {
     {0x2E, (Instr){(Instr_args){"LD", 0x2E, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMM8}}, &Cpu::LD}}, //OK
     {0x2F, (Instr){(Instr_args){"CPL", 0x2F}, &Cpu::CPL}},
     {0x30, (Instr){(Instr_args){"JR", 0x30, (Operand){Addr_mode::IMMe8}, (Operand){Addr_mode::IMPL, NO_REG, 1}, Cond::NC}, &Cpu::JP}},
-
+    {0x31, (Instr){(Instr_args){"LD", 0x31, (Operand){Addr_mode::REG16, SP}, (Operand){Addr_mode::IMM16}}, &Cpu::LD}},
     {0x32, (Instr){(Instr_args){"LD", 0x32, (Operand){Addr_mode::MEM_REG_DEC, HL, 0}, (Operand){Addr_mode::REG, A}}, &Cpu::LD}},
     {0x33, (Instr){(Instr_args){"INC", 0x33, (Operand){Addr_mode::REG16, SP}, (Operand){Addr_mode::IMPL, NO_REG, 1}, Cond::ALWAYS, 2}, &Cpu::ADD}},
     {0x34, (Instr){(Instr_args){"INC", 0x34, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL, NO_REG, 1}, Cond::ALWAYS, 2}, &Cpu::ADD}},
     {0x35, (Instr){(Instr_args){"DEC", 0x35, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL, NO_REG, 1}, Cond::ALWAYS, 2}, &Cpu::SUB}},
     {0x36, (Instr){(Instr_args){"LD", 0x36, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMM8}}, &Cpu::LD}}, //OK
-
+    {0x37, (Instr){(Instr_args){"SCF", 0x37}, &Cpu::SCF}},
     {0x38, (Instr){(Instr_args){"JR", 0x38, (Operand){Addr_mode::IMMe8}, (Operand){Addr_mode::IMPL, NO_REG, 1}, Cond::C}, &Cpu::JP}},
     {0x39, (Instr){(Instr_args){"ADD", 0x39, (Operand){Addr_mode::REG16, HL}, (Operand){Addr_mode::REG16, SP}}, &Cpu::ADD}},
     {0x3A, (Instr){(Instr_args){"LD", 0x3A, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::MEM_REG_DEC, HL, 0}}, &Cpu::LD}},
@@ -92,7 +91,7 @@ std::map<u8,Instr> Cpu::instr_map = {
     {0x3C, (Instr){(Instr_args){"INC", 0x3C, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL, NO_REG, 1}, Cond::ALWAYS, 2}, &Cpu::ADD}},
     {0x3D, (Instr){(Instr_args){"DEC", 0x3D, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL, NO_REG, 1}, Cond::ALWAYS, 2}, &Cpu::SUB}},
     {0x3E, (Instr){(Instr_args){"LD", 0x3E, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMM8}}, &Cpu::LD}}, //OK
-
+    {0x3F, (Instr){(Instr_args){"CCF", 0x3F}, &Cpu::CCF}},
     {0x40, (Instr){(Instr_args){"LD", 0x40, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::REG, B}}, &Cpu::LD}},
     {0x41, (Instr){(Instr_args){"LD", 0x41, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::REG, C}}, &Cpu::LD}},
     {0x42, (Instr){(Instr_args){"LD", 0x42, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::REG, D}}, &Cpu::LD}},
@@ -222,11 +221,11 @@ std::map<u8,Instr> Cpu::instr_map = {
     {0xBE, (Instr){(Instr_args){"CP", 0xBE, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::MEM_REG, HL}}, &Cpu::CP}},
     {0xBF, (Instr){(Instr_args){"CP", 0xBF, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::REG, A}}, &Cpu::CP}},
     {0xC0, (Instr){(Instr_args){"RET", 0xC0, (Operand){Addr_mode::MEM16_REG, SP}, (Operand){Addr_mode::IMPL}, Cond::NZ, 2}, &Cpu::JP}},
-
+    {0xC1, (Instr){(Instr_args){"POP", 0xC1, (Operand){Addr_mode::REG16, BC}, (Operand){Addr_mode::MEM16_REG, SP}, Cond::ALWAYS, 1}, &Cpu::PUSH_POP}},
     {0xC2, (Instr){(Instr_args){"JP", 0xC2, (Operand){Addr_mode::IMM16}, (Operand){Addr_mode::IMPL, NO_REG, 0}, Cond::NZ}, &Cpu::JP}}, //OK
     {0xC3, (Instr){(Instr_args){"JP", 0xC3, (Operand){Addr_mode::IMM16}}, &Cpu::JP}}, //OK
     {0xC4, (Instr){(Instr_args){"CALL", 0xC4, (Operand){Addr_mode::IMM16}, (Operand){Addr_mode::IMPL}, Cond::NZ, 1}, &Cpu::JP}},
-
+    {0xC5, (Instr){(Instr_args){"PUSH", 0xC5, (Operand){Addr_mode::MEM16_REG, SP}, (Operand){Addr_mode::REG16, BC}, Cond::ALWAYS, 0}, &Cpu::PUSH_POP}},
     {0xC6, (Instr){(Instr_args){"ADD", 0xC6, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMM8}}, &Cpu::ADD}},
     {0xC7, (Instr){(Instr_args){"RST", 0xC7, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 1}, &Cpu::JP}},
     {0xC8, (Instr){(Instr_args){"RET", 0xC8, (Operand){Addr_mode::MEM16_REG, SP}, (Operand){Addr_mode::IMPL}, Cond::Z, 2}, &Cpu::JP}},
@@ -238,11 +237,11 @@ std::map<u8,Instr> Cpu::instr_map = {
     {0xCE, (Instr){(Instr_args){"ADC", 0xCE, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMM8}, Cond::ALWAYS, 1}, &Cpu::ADD}},
     {0xCF, (Instr){(Instr_args){"RST", 0xCF, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 8}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 1}, &Cpu::JP}},
     {0xD0, (Instr){(Instr_args){"RET", 0xD0, (Operand){Addr_mode::MEM16_REG, SP}, (Operand){Addr_mode::IMPL}, Cond::NC, 2}, &Cpu::JP}},
-
+    {0xD1, (Instr){(Instr_args){"POP", 0xD1, (Operand){Addr_mode::REG16, DE}, (Operand){Addr_mode::REG16, SP}, Cond::ALWAYS, 1}, &Cpu::PUSH_POP}},
     {0xD2, (Instr){(Instr_args){"JP", 0xD2, (Operand){Addr_mode::IMM16}, (Operand){Addr_mode::IMPL, NO_REG, 0}, Cond::NC}, &Cpu::JP}}, //OK
     {0xD3, (Instr){(Instr_args){"X_X", 0xD3}, &Cpu::X_X}},
     {0xD4, (Instr){(Instr_args){"CALL", 0xD4, (Operand){Addr_mode::IMM16}, (Operand){Addr_mode::IMPL}, Cond::NC, 1}, &Cpu::JP}},
-
+    {0xD5, (Instr){(Instr_args){"PUSH", 0xD5, (Operand){Addr_mode::MEM16_REG, SP}, (Operand){Addr_mode::REG16, DE}, Cond::ALWAYS, 0}, &Cpu::PUSH_POP}},
     {0xD6, (Instr){(Instr_args){"SUB", 0xD6, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMM8}}, &Cpu::SUB}},
     {0xD7, (Instr){(Instr_args){"RST", 0xD7, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0x10}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 1}, &Cpu::JP}},
     {0xD8, (Instr){(Instr_args){"RET", 0xD8, (Operand){Addr_mode::MEM16_REG, SP}, (Operand){Addr_mode::IMPL}, Cond::C, 2}, &Cpu::JP}},
@@ -254,11 +253,11 @@ std::map<u8,Instr> Cpu::instr_map = {
     {0xDE, (Instr){(Instr_args){"SBC", 0xDE, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMM8}, Cond::ALWAYS, 1}, &Cpu::SUB}},
     {0xDF, (Instr){(Instr_args){"RST", 0xDF, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0x18}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 1}, &Cpu::JP}},
     {0xE0, (Instr){(Instr_args){"LD", 0xE0, (Operand){Addr_mode::HRAM_PLUS_IMM8}, (Operand){Addr_mode::REG, A}}, &Cpu::LD}},
-
+    {0xE1, (Instr){(Instr_args){"POP", 0xE1, (Operand){Addr_mode::REG16, HL}, (Operand){Addr_mode::MEM16_REG, SP}, Cond::ALWAYS, 1}, &Cpu::PUSH_POP}},
     {0xE2, (Instr){(Instr_args){"LD", 0xE2, (Operand){Addr_mode::HRAM_PLUS_C}, (Operand){Addr_mode::REG, A}}, &Cpu::LD}},
     {0xE3, (Instr){(Instr_args){"X_X", 0xE3}, &Cpu::X_X}},
     {0xE4, (Instr){(Instr_args){"X_X", 0xE4}, &Cpu::X_X}},
-
+    {0xE5, (Instr){(Instr_args){"PUSH", 0xE5, (Operand){Addr_mode::MEM16_REG, SP}, (Operand){Addr_mode::REG16, HL}, Cond::ALWAYS, 0}, &Cpu::PUSH_POP}},
     {0xE6, (Instr){(Instr_args){"AND", 0xE6, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMM8}}, &Cpu::AND}},
     {0xE7, (Instr){(Instr_args){"RST", 0xE7, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0x20}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 1}, &Cpu::JP}},
     {0xE8, (Instr){(Instr_args){"ADD", 0xE8, (Operand){Addr_mode::REG16, SP}, (Operand){Addr_mode::IMMe8}}, &Cpu::ADD}},
@@ -269,14 +268,18 @@ std::map<u8,Instr> Cpu::instr_map = {
     {0xED, (Instr){(Instr_args){"X_X", 0xED}, &Cpu::X_X}},
     {0xEE, (Instr){(Instr_args){"XOR", 0xEE, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMM8}}, &Cpu::XOR}},
     {0xEF, (Instr){(Instr_args){"RST", 0xEF, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0x28}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 1}, &Cpu::JP}},
-
+    {0xF0, (Instr){(Instr_args){"LD", 0xF0, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::HRAM_PLUS_IMM8}}, &Cpu::LD}},
+    {0xF1, (Instr){(Instr_args){"POP", 0xF1, (Operand){Addr_mode::REG16, AF}, (Operand){Addr_mode::MEM16_REG, SP}, Cond::ALWAYS, 1}, &Cpu::PUSH_POP}},
+    {0xF2, (Instr){(Instr_args){"LD", 0xF2, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::HRAM_PLUS_C}}, &Cpu::LD}},
+    {0xF3, (Instr){(Instr_args){"DI", 0xF3}, &Cpu::DI}},
     {0xF4, (Instr){(Instr_args){"X_X", 0xF4}, &Cpu::X_X}},
-
+    {0xF5, (Instr){(Instr_args){"PUSH", 0xF5, (Operand){Addr_mode::MEM16_REG, SP}, (Operand){Addr_mode::REG16, AF}, Cond::ALWAYS, 0}, &Cpu::PUSH_POP}},
     {0xF6, (Instr){(Instr_args){"OR", 0xF6, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMM8}}, &Cpu::OR}},
     {0xF7, (Instr){(Instr_args){"RST", 0xF7, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0x30}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 1}, &Cpu::JP}},
-    
+    {0xF8, (Instr){(Instr_args){"LD", 0xF8, (Operand){Addr_mode::REG16, HL}, (Operand){Addr_mode::REG16_PLUS_IMMe8, SP}}, &Cpu::LD}},
     {0xF9, (Instr){(Instr_args){"LD", 0xF9, (Operand){Addr_mode::REG16, SP}, (Operand){Addr_mode::REG16, HL}}, &Cpu::LD}}, //OK
-
+    {0xFA, (Instr){(Instr_args){"LD", 0xFA, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::MEM_IMM16}}, &Cpu::LD}},
+    {0xFB, (Instr){(Instr_args){"EI", 0xFB}, &Cpu::EI}},
     {0xFC, (Instr){(Instr_args){"X_X", 0xFC}, &Cpu::X_X}},
     {0xFD, (Instr){(Instr_args){"X_X", 0xFD}, &Cpu::X_X}},
     {0xFE, (Instr){(Instr_args){"CP", 0xFE, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMM8}}, &Cpu::CP}},
@@ -519,7 +522,7 @@ std::string Cpu::operand_toString(Operand op){
             break;
         case Addr_mode::REG16_PLUS_IMMe8:
             this->fetch_operand(op, false);
-            str += reg_names[op.reg] + " + $" + numToHexString(op.value, 2, true);
+            str += reg_names[op.reg] + " + $" + numToHexString(op.value-this->regs[op.reg], 2, true);
             break;
         case Addr_mode::MEM_REG: case Addr_mode::MEM_REG_INC: case Addr_mode::MEM_REG_DEC:
             str += "[" + reg_names[op.reg] + (op.addr_mode == Addr_mode::MEM_REG_INC ? "+" : op.addr_mode == Addr_mode::MEM_REG_DEC ? "-" : "") + "]";
@@ -553,6 +556,7 @@ std::string Cpu::instr_toString(Instr instr){
 }
 std::string Cpu::toString(){
     std::string str = "Cpu state: "+cpu_state_names[this->state];
+    str += "\nIME: " + std::to_string(this->IME);
     str += "\nRegisters:\n";
     for (int i=0; i<(int)(sizeof(reg_arr)/sizeof(reg_arr[0])-2); i++){
         str += reg_names[reg_arr[i]] + ": " + numToHexString(this->regs[reg_arr[i]], i<8 ? 2 : 4) + " ";
@@ -600,6 +604,22 @@ void Cpu::HALT(Instr_args args){
 void Cpu::STOP(Instr_args args){
     this->NOP(args); //For now I'm leaving it this way, I didn't know STOP was so weird
 }
+void Cpu::DI(Instr_args args){
+    this->IME = false;
+}
+void Cpu::EI(Instr_args args){
+    this->IME_pending = 2;
+}
+void Cpu::SCF(Instr_args args){
+    this->regs.set_flag(Flag::N, false);
+    this->regs.set_flag(Flag::H, false);
+    this->regs.set_flag(Flag::C, true);
+}
+void Cpu::CCF(Instr_args args){
+    this->regs.set_flag(Flag::N, false);
+    this->regs.set_flag(Flag::H, false);
+    this->regs.set_flag(Flag::C, !this->regs.get_flag(Flag::C));
+}
 void Cpu::LD(Instr_args args){
     this->fetch_operand(args.src);
     this->write_to_operand(args.dest, args.src.value, args.src.addr_mode);
@@ -609,8 +629,11 @@ void Cpu::PUSH_POP(Instr_args args){
     0: PUSH
     1: POP
     */
+    if (args.variant == 0)
+        this->regs[SP] -= 2;
     this->LD(args);
-    this->regs[SP] += args.variant == 0 ? -2 : 2;
+    if (args.variant == 1)
+        this->regs[SP] += 2;
 }
 
 void Cpu::ADD(Instr_args args){
@@ -780,9 +803,10 @@ void Cpu::DAA(Instr_args args){
     bool new_carry = false;
     if (this->regs.get_flag(Flag::H) || (!this->regs.get_flag(Flag::N) && (this->regs[A] & 0xF) > 9))
         offset = 6;
-    if (this->regs.get_flag(Flag::C) || (!this->regs.get_flag(Flag::N) && (this->regs[A] & 0xF) > 0x99))
+    if (this->regs.get_flag(Flag::C) || (!this->regs.get_flag(Flag::N) && (this->regs[A] & 0xF) > 0x99)){
         offset |= 0x60;
         new_carry = true;
+    }
     this->regs[A] += this->regs.get_flag(Flag::N) ? -offset : offset;
     this->regs.set_flag(Flag::C, new_carry);
     this->regs.set_flag(Flag::H, false);
