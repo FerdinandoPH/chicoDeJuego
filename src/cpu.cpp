@@ -286,7 +286,262 @@ std::map<u8,Instr> Cpu::instr_map = {
     {0xFF, (Instr){(Instr_args){"RST", 0xFF, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0x38}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 1}, &Cpu::JP}}
 };
 std::map<u8,Instr> Cpu::instr_map_prefix = {
-    {0x00, (Instr){(Instr_args){"RLC B",0xCB00}, &Cpu::ROT}}
+    {0x00, (Instr){(Instr_args){"RLC",0xCB00, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 3}, &Cpu::ROT}},
+    {0x01, (Instr){(Instr_args){"RLC",0xCB01, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 3}, &Cpu::ROT}},
+    {0x02, (Instr){(Instr_args){"RLC",0xCB02, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 3}, &Cpu::ROT}},
+    {0x03, (Instr){(Instr_args){"RLC",0xCB03, (Operand){Addr_mode::REG, E}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 3}, &Cpu::ROT}},
+    {0x04, (Instr){(Instr_args){"RLC",0xCB04, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 3}, &Cpu::ROT}},
+    {0x05, (Instr){(Instr_args){"RLC",0xCB05, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 3}, &Cpu::ROT}},
+    {0x06, (Instr){(Instr_args){"RLC",0xCB06, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 3}, &Cpu::ROT}},
+    {0x07, (Instr){(Instr_args){"RLC",0xCB07, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 3}, &Cpu::ROT}},
+    {0x08, (Instr){(Instr_args){"RRC",0xCB08, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 7}, &Cpu::ROT}},
+    {0x09, (Instr){(Instr_args){"RRC",0xCB09, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 7}, &Cpu::ROT}},
+    {0x0A, (Instr){(Instr_args){"RRC",0xCB0A, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 7}, &Cpu::ROT}},
+    {0x0B, (Instr){(Instr_args){"RRC",0xCB0B, (Operand){Addr_mode::REG, E}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 7}, &Cpu::ROT}},
+    {0x0C, (Instr){(Instr_args){"RRC",0xCB0C, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 7}, &Cpu::ROT}},
+    {0x0D, (Instr){(Instr_args){"RRC",0xCB0D, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 7}, &Cpu::ROT}},
+    {0x0E, (Instr){(Instr_args){"RRC",0xCB0E, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 7}, &Cpu::ROT}},
+    {0x0F, (Instr){(Instr_args){"RRC",0xCB0F, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 7}, &Cpu::ROT}},
+    {0x10, (Instr){(Instr_args){"RL",0xCB10, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 1}, &Cpu::ROT}},
+    {0x11, (Instr){(Instr_args){"RL",0xCB11, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 1}, &Cpu::ROT}},
+    {0x12, (Instr){(Instr_args){"RL",0xCB12, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 1}, &Cpu::ROT}},
+    {0x13, (Instr){(Instr_args){"RL",0xCB13, (Operand){Addr_mode::REG, E}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 1}, &Cpu::ROT}},
+    {0x14, (Instr){(Instr_args){"RL",0xCB14, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 1}, &Cpu::ROT}},
+    {0x15, (Instr){(Instr_args){"RL",0xCB15, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 1}, &Cpu::ROT}},
+    {0x16, (Instr){(Instr_args){"RL",0xCB16, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 1}, &Cpu::ROT}},
+    {0x17, (Instr){(Instr_args){"RL",0xCB17, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 1}, &Cpu::ROT}},
+    {0x18, (Instr){(Instr_args){"RR",0xCB18, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 5}, &Cpu::ROT}},
+    {0x19, (Instr){(Instr_args){"RR",0xCB19, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 5}, &Cpu::ROT}},
+    {0x1A, (Instr){(Instr_args){"RR",0xCB1A, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 5}, &Cpu::ROT}},
+    {0x1B, (Instr){(Instr_args){"RR",0xCB1B, (Operand){Addr_mode::REG, E}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 5}, &Cpu::ROT}},
+    {0x1C, (Instr){(Instr_args){"RR",0xCB1C, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 5}, &Cpu::ROT}},
+    {0x1D, (Instr){(Instr_args){"RR",0xCB1D, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 5}, &Cpu::ROT}},
+    {0x1E, (Instr){(Instr_args){"RR",0xCB1E, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 5}, &Cpu::ROT}},
+    {0x1F, (Instr){(Instr_args){"RR",0xCB1F, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 5}, &Cpu::ROT}},
+    {0x20, (Instr){(Instr_args){"SLA",0xCB20, (Operand){Addr_mode::REG, B}}, &Cpu::SHIFT}},
+    {0x21, (Instr){(Instr_args){"SLA",0xCB21, (Operand){Addr_mode::REG, C}}, &Cpu::SHIFT}},
+    {0x22, (Instr){(Instr_args){"SLA",0xCB22, (Operand){Addr_mode::REG, D}}, &Cpu::SHIFT}},
+    {0x23, (Instr){(Instr_args){"SLA",0xCB23, (Operand){Addr_mode::REG, E}}, &Cpu::SHIFT}},
+    {0x24, (Instr){(Instr_args){"SLA",0xCB24, (Operand){Addr_mode::REG, H}}, &Cpu::SHIFT}},
+    {0x25, (Instr){(Instr_args){"SLA",0xCB25, (Operand){Addr_mode::REG, L}}, &Cpu::SHIFT}},
+    {0x26, (Instr){(Instr_args){"SLA",0xCB26, (Operand){Addr_mode::MEM_REG, HL}}, &Cpu::SHIFT}},
+    {0x27, (Instr){(Instr_args){"SLA",0xCB27, (Operand){Addr_mode::REG, A}}, &Cpu::SHIFT}},
+    {0x28, (Instr){(Instr_args){"SRA",0xCB28, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 1}, &Cpu::SHIFT}},
+    {0x29, (Instr){(Instr_args){"SRA",0xCB29, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 1}, &Cpu::SHIFT}},
+    {0x2A, (Instr){(Instr_args){"SRA",0xCB2A, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 1}, &Cpu::SHIFT}},
+    {0x2B, (Instr){(Instr_args){"SRA",0xCB2B, (Operand){Addr_mode::REG, E}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 1}, &Cpu::SHIFT}},
+    {0x2C, (Instr){(Instr_args){"SRA",0xCB2C, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 1}, &Cpu::SHIFT}},
+    {0x2D, (Instr){(Instr_args){"SRA",0xCB2D, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 1}, &Cpu::SHIFT}},
+    {0x2E, (Instr){(Instr_args){"SRA",0xCB2E, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 1}, &Cpu::SHIFT}},
+    {0x2F, (Instr){(Instr_args){"SRA",0xCB2F, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 1}, &Cpu::SHIFT}},
+    {0x30, (Instr){(Instr_args){"SWAP",0xCB30, (Operand){Addr_mode::REG, B}}, &Cpu::SWAP}},
+    {0x31, (Instr){(Instr_args){"SWAP",0xCB31, (Operand){Addr_mode::REG, C}}, &Cpu::SWAP}},
+    {0x32, (Instr){(Instr_args){"SWAP",0xCB32, (Operand){Addr_mode::REG, D}}, &Cpu::SWAP}},
+    {0x33, (Instr){(Instr_args){"SWAP",0xCB33, (Operand){Addr_mode::REG, E}}, &Cpu::SWAP}},
+    {0x34, (Instr){(Instr_args){"SWAP",0xCB34, (Operand){Addr_mode::REG, H}}, &Cpu::SWAP}},
+    {0x35, (Instr){(Instr_args){"SWAP",0xCB35, (Operand){Addr_mode::REG, L}}, &Cpu::SWAP}},
+    {0x36, (Instr){(Instr_args){"SWAP",0xCB36, (Operand){Addr_mode::MEM_REG, HL}}, &Cpu::SWAP}},
+    {0x37, (Instr){(Instr_args){"SWAP",0xCB37, (Operand){Addr_mode::REG, A}}, &Cpu::SWAP}},
+    {0x38, (Instr){(Instr_args){"SRL",0xCB38, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 2}, &Cpu::SHIFT}},
+    {0x39, (Instr){(Instr_args){"SRL",0xCB39, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 2}, &Cpu::SHIFT}},
+    {0x3A, (Instr){(Instr_args){"SRL",0xCB3A, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 2}, &Cpu::SHIFT}},
+    {0x3B, (Instr){(Instr_args){"SRL",0xCB3B, (Operand){Addr_mode::REG, E}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 2}, &Cpu::SHIFT}},
+    {0x3C, (Instr){(Instr_args){"SRL",0xCB3C, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 2}, &Cpu::SHIFT}},
+    {0x3D, (Instr){(Instr_args){"SRL",0xCB3D, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 2}, &Cpu::SHIFT}},
+    {0x3E, (Instr){(Instr_args){"SRL",0xCB3E, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 2}, &Cpu::SHIFT}},
+    {0x3F, (Instr){(Instr_args){"SRL",0xCB3F, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 2}, &Cpu::SHIFT}},
+    {0x40, (Instr){(Instr_args){"BIT",0xCB40, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0}}, &Cpu::BIT}},
+    {0x41, (Instr){(Instr_args){"BIT",0xCB41, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0}}, &Cpu::BIT}},
+    {0x42, (Instr){(Instr_args){"BIT",0xCB42, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0}}, &Cpu::BIT}},
+    {0x43, (Instr){(Instr_args){"BIT",0xCB43, (Operand){Addr_mode::REG, E}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0}}, &Cpu::BIT}},
+    {0x44, (Instr){(Instr_args){"BIT",0xCB44, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0}}, &Cpu::BIT}},
+    {0x45, (Instr){(Instr_args){"BIT",0xCB45, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0}}, &Cpu::BIT}},
+    {0x46, (Instr){(Instr_args){"BIT",0xCB46, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0}}, &Cpu::BIT}},
+    {0x47, (Instr){(Instr_args){"BIT",0xCB47, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0}}, &Cpu::BIT}},
+    {0x48, (Instr){(Instr_args){"BIT",0xCB48, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 1}}, &Cpu::BIT}},
+    {0x49, (Instr){(Instr_args){"BIT",0xCB49, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 1}}, &Cpu::BIT}},
+    {0x4A, (Instr){(Instr_args){"BIT",0xCB4A, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 1}}, &Cpu::BIT}},
+    {0x4B, (Instr){(Instr_args){"BIT",0xCB4B, (Operand){Addr_mode::REG, E}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 1}}, &Cpu::BIT}},
+    {0x4C, (Instr){(Instr_args){"BIT",0xCB4C, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 1}}, &Cpu::BIT}},
+    {0x4D, (Instr){(Instr_args){"BIT",0xCB4D, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 1}}, &Cpu::BIT}},
+    {0x4E, (Instr){(Instr_args){"BIT",0xCB4E, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 1}}, &Cpu::BIT}},
+    {0x4F, (Instr){(Instr_args){"BIT",0xCB4F, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 1}}, &Cpu::BIT}},
+    {0x50, (Instr){(Instr_args){"BIT",0xCB50, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 2}}, &Cpu::BIT}},
+    {0x51, (Instr){(Instr_args){"BIT",0xCB51, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 2}}, &Cpu::BIT}},
+    {0x52, (Instr){(Instr_args){"BIT",0xCB52, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 2}}, &Cpu::BIT}},
+    {0x53, (Instr){(Instr_args){"BIT",0xCB53, (Operand){Addr_mode::REG, E}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 2}}, &Cpu::BIT}},
+    {0x54, (Instr){(Instr_args){"BIT",0xCB54, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 2}}, &Cpu::BIT}},
+    {0x55, (Instr){(Instr_args){"BIT",0xCB55, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 2}}, &Cpu::BIT}},
+    {0x56, (Instr){(Instr_args){"BIT",0xCB56, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 2}}, &Cpu::BIT}},
+    {0x57, (Instr){(Instr_args){"BIT",0xCB57, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 2}}, &Cpu::BIT}},
+    {0x58, (Instr){(Instr_args){"BIT",0xCB58, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 3}}, &Cpu::BIT}},
+    {0x59, (Instr){(Instr_args){"BIT",0xCB59, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 3}}, &Cpu::BIT}},
+    {0x5A, (Instr){(Instr_args){"BIT",0xCB5A, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 3}}, &Cpu::BIT}},
+    {0x5B, (Instr){(Instr_args){"BIT",0xCB5B, (Operand){Addr_mode::REG, E}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 3}}, &Cpu::BIT}},
+    {0x5C, (Instr){(Instr_args){"BIT",0xCB5C, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 3}}, &Cpu::BIT}},
+    {0x5D, (Instr){(Instr_args){"BIT",0xCB5D, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 3}}, &Cpu::BIT}},
+    {0x5E, (Instr){(Instr_args){"BIT",0xCB5E, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 3}}, &Cpu::BIT}},
+    {0x5F, (Instr){(Instr_args){"BIT",0xCB5F, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 3}}, &Cpu::BIT}},
+    {0x60, (Instr){(Instr_args){"BIT",0xCB60, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 4}}, &Cpu::BIT}},
+    {0x61, (Instr){(Instr_args){"BIT",0xCB61, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 4}}, &Cpu::BIT}},
+    {0x62, (Instr){(Instr_args){"BIT",0xCB62, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 4}}, &Cpu::BIT}},
+    {0x63, (Instr){(Instr_args){"BIT",0xCB63, (Operand){Addr_mode::REG, E}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 4}}, &Cpu::BIT}},
+    {0x64, (Instr){(Instr_args){"BIT",0xCB64, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 4}}, &Cpu::BIT}},
+    {0x65, (Instr){(Instr_args){"BIT",0xCB65, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 4}}, &Cpu::BIT}},
+    {0x66, (Instr){(Instr_args){"BIT",0xCB66, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 4}}, &Cpu::BIT}},
+    {0x67, (Instr){(Instr_args){"BIT",0xCB67, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 4}}, &Cpu::BIT}},
+    {0x68, (Instr){(Instr_args){"BIT",0xCB68, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 5}}, &Cpu::BIT}},
+    {0x69, (Instr){(Instr_args){"BIT",0xCB69, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 5}}, &Cpu::BIT}},
+    {0x6A, (Instr){(Instr_args){"BIT",0xCB6A, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 5}}, &Cpu::BIT}},
+    {0x6B, (Instr){(Instr_args){"BIT",0xCB6B, (Operand){Addr_mode::REG, E}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 5}}, &Cpu::BIT}},
+    {0x6C, (Instr){(Instr_args){"BIT",0xCB6C, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 5}}, &Cpu::BIT}},
+    {0x6D, (Instr){(Instr_args){"BIT",0xCB6D, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 5}}, &Cpu::BIT}},
+    {0x6E, (Instr){(Instr_args){"BIT",0xCB6E, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 5}}, &Cpu::BIT}},
+    {0x6F, (Instr){(Instr_args){"BIT",0xCB6F, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 5}}, &Cpu::BIT}},
+    {0x70, (Instr){(Instr_args){"BIT",0xCB70, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 6}}, &Cpu::BIT}},
+    {0x71, (Instr){(Instr_args){"BIT",0xCB71, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 6}}, &Cpu::BIT}},
+    {0x72, (Instr){(Instr_args){"BIT",0xCB72, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 6}}, &Cpu::BIT}},
+    {0x73, (Instr){(Instr_args){"BIT",0xCB73, (Operand){Addr_mode::REG, E}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 6}}, &Cpu::BIT}},
+    {0x74, (Instr){(Instr_args){"BIT",0xCB74, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 6}}, &Cpu::BIT}},
+    {0x75, (Instr){(Instr_args){"BIT",0xCB75, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 6}}, &Cpu::BIT}},
+    {0x76, (Instr){(Instr_args){"BIT",0xCB76, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 6}}, &Cpu::BIT}},
+    {0x77, (Instr){(Instr_args){"BIT",0xCB77, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 6}}, &Cpu::BIT}},
+    {0x78, (Instr){(Instr_args){"BIT",0xCB78, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::BIT}},
+    {0x79, (Instr){(Instr_args){"BIT",0xCB79, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::BIT}},
+    {0x7A, (Instr){(Instr_args){"BIT",0xCB7A, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::BIT}},
+    {0x7B, (Instr){(Instr_args){"BIT",0xCB7B, (Operand){Addr_mode::REG, E}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::BIT}},
+    {0x7C, (Instr){(Instr_args){"BIT",0xCB7C, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::BIT}},
+    {0x7D, (Instr){(Instr_args){"BIT",0xCB7D, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::BIT}},
+    {0x7E, (Instr){(Instr_args){"BIT",0xCB7E, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::BIT}},
+    {0x7F, (Instr){(Instr_args){"BIT",0xCB7F, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::BIT}},
+    {0x80, (Instr){(Instr_args){"RES",0xCB80, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0}}, &Cpu::RES}},
+    {0x81, (Instr){(Instr_args){"RES",0xCB81, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0}}, &Cpu::RES}},
+    {0x82, (Instr){(Instr_args){"RES",0xCB82, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0}}, &Cpu::RES}},
+    {0x83, (Instr){(Instr_args){"RES",0xCB83, (Operand){Addr_mode::REG, E}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0}}, &Cpu::RES}},
+    {0x84, (Instr){(Instr_args){"RES",0xCB84, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0}}, &Cpu::RES}},
+    {0x85, (Instr){(Instr_args){"RES",0xCB85, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0}}, &Cpu::RES}},
+    {0x86, (Instr){(Instr_args){"RES",0xCB86, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0}}, &Cpu::RES}},
+    {0x87, (Instr){(Instr_args){"RES",0xCB87, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0}}, &Cpu::RES}},
+    {0x88, (Instr){(Instr_args){"RES",0xCB88, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 1}}, &Cpu::RES}},
+    {0x89, (Instr){(Instr_args){"RES",0xCB89, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 1}}, &Cpu::RES}},
+    {0x8A, (Instr){(Instr_args){"RES",0xCB8A, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 1}}, &Cpu::RES}},
+    {0x8B, (Instr){(Instr_args){"RES",0xCB8B, (Operand){Addr_mode::REG, E}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 1}}, &Cpu::RES}},
+    {0x8C, (Instr){(Instr_args){"RES",0xCB8C, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 1}}, &Cpu::RES}},
+    {0x8D, (Instr){(Instr_args){"RES",0xCB8D, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 1}}, &Cpu::RES}},
+    {0x8E, (Instr){(Instr_args){"RES",0xCB8E, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 1}}, &Cpu::RES}},
+    {0x8F, (Instr){(Instr_args){"RES",0xCB8F, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 1}}, &Cpu::RES}},
+    {0x90, (Instr){(Instr_args){"RES",0xCB90, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 2}}, &Cpu::RES}},
+    {0x91, (Instr){(Instr_args){"RES",0xCB91, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 2}}, &Cpu::RES}},
+    {0x92, (Instr){(Instr_args){"RES",0xCB92, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 2}}, &Cpu::RES}},
+    {0x93, (Instr){(Instr_args){"RES",0xCB93, (Operand){Addr_mode::REG, E}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 2}}, &Cpu::RES}},
+    {0x94, (Instr){(Instr_args){"RES",0xCB94, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 2}}, &Cpu::RES}},
+    {0x95, (Instr){(Instr_args){"RES",0xCB95, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 2}}, &Cpu::RES}},
+    {0x96, (Instr){(Instr_args){"RES",0xCB96, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 2}}, &Cpu::RES}},
+    {0x97, (Instr){(Instr_args){"RES",0xCB97, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 2}}, &Cpu::RES}},
+    {0x98, (Instr){(Instr_args){"RES",0xCB98, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 3}}, &Cpu::RES}},
+    {0x99, (Instr){(Instr_args){"RES",0xCB99, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 3}}, &Cpu::RES}},
+    {0x9A, (Instr){(Instr_args){"RES",0xCB9A, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 3}}, &Cpu::RES}},
+    {0x9B, (Instr){(Instr_args){"RES",0xCB9B, (Operand){Addr_mode::REG, E}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 3}}, &Cpu::RES}},
+    {0x9C, (Instr){(Instr_args){"RES",0xCB9C, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 3}}, &Cpu::RES}},
+    {0x9D, (Instr){(Instr_args){"RES",0xCB9D, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 3}}, &Cpu::RES}},
+    {0x9E, (Instr){(Instr_args){"RES",0xCB9E, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 3}}, &Cpu::RES}},
+    {0x9F, (Instr){(Instr_args){"RES",0xCB9F, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 3}}, &Cpu::RES}},
+    {0xA0, (Instr){(Instr_args){"RES",0xCBA0, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 4}}, &Cpu::RES}},
+    {0xA1, (Instr){(Instr_args){"RES",0xCBA1, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 4}}, &Cpu::RES}},
+    {0xA2, (Instr){(Instr_args){"RES",0xCBA2, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 4}}, &Cpu::RES}},
+    {0xA3, (Instr){(Instr_args){"RES",0xCBA3, (Operand){Addr_mode::REG, E}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 4}}, &Cpu::RES}},
+    {0xA4, (Instr){(Instr_args){"RES",0xCBA4, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 4}}, &Cpu::RES}},
+    {0xA5, (Instr){(Instr_args){"RES",0xCBA5, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 4}}, &Cpu::RES}},
+    {0xA6, (Instr){(Instr_args){"RES",0xCBA6, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 4}}, &Cpu::RES}},
+    {0xA7, (Instr){(Instr_args){"RES",0xCBA7, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 4}}, &Cpu::RES}},
+    {0xA8, (Instr){(Instr_args){"RES",0xCBA8, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 5}}, &Cpu::RES}},
+    {0xA9, (Instr){(Instr_args){"RES",0xCBA9, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 5}}, &Cpu::RES}},
+    {0xAA, (Instr){(Instr_args){"RES",0xCBAA, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 5}}, &Cpu::RES}},
+    {0xAB, (Instr){(Instr_args){"RES",0xCBAB, (Operand){Addr_mode::REG, E}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 5}}, &Cpu::RES}},
+    {0xAC, (Instr){(Instr_args){"RES",0xCBAC, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 5}}, &Cpu::RES}},
+    {0xAD, (Instr){(Instr_args){"RES",0xCBAD, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 5}}, &Cpu::RES}},
+    {0xAE, (Instr){(Instr_args){"RES",0xCBAE, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 5}}, &Cpu::RES}},
+    {0xAF, (Instr){(Instr_args){"RES",0xCBAF, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 5}}, &Cpu::RES}},
+    {0xB0, (Instr){(Instr_args){"RES",0xCBB0, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 6}}, &Cpu::RES}},
+    {0xB1, (Instr){(Instr_args){"RES",0xCBB1, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 6}}, &Cpu::RES}},
+    {0xB2, (Instr){(Instr_args){"RES",0xCBB2, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 6}}, &Cpu::RES}},
+    {0xB3, (Instr){(Instr_args){"RES",0xCBB3, (Operand){Addr_mode::REG, E}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 6}}, &Cpu::RES}},
+    {0xB4, (Instr){(Instr_args){"RES",0xCBB4, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 6}}, &Cpu::RES}},
+    {0xB5, (Instr){(Instr_args){"RES",0xCBB5, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 6}}, &Cpu::RES}},
+    {0xB6, (Instr){(Instr_args){"RES",0xCBB6, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 6}}, &Cpu::RES}},
+    {0xB7, (Instr){(Instr_args){"RES",0xCBB7, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 6}}, &Cpu::RES}},
+    {0xB8, (Instr){(Instr_args){"RES",0xCBB8, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::RES}},
+    {0xB9, (Instr){(Instr_args){"RES",0xCBB9, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::RES}},
+    {0xBA, (Instr){(Instr_args){"RES",0xCBBA, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::RES}},
+    {0xBB, (Instr){(Instr_args){"RES",0xCBBB, (Operand){Addr_mode::REG, E}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::RES}},
+    {0xBC, (Instr){(Instr_args){"RES",0xCBBC, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::RES}},
+    {0xBD, (Instr){(Instr_args){"RES",0xCBBD, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::RES}},
+    {0xBE, (Instr){(Instr_args){"RES",0xCBBE, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::RES}},
+    {0xBF, (Instr){(Instr_args){"RES",0xCBBF, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::RES}},
+    {0xC0, (Instr){(Instr_args){"SET",0xCBC0, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0}}, &Cpu::SET}},
+    {0xC1, (Instr){(Instr_args){"SET",0xCBC1, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0}}, &Cpu::SET}},
+    {0xC2, (Instr){(Instr_args){"SET",0xCBC2, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0}}, &Cpu::SET}},
+    {0xC3, (Instr){(Instr_args){"SET",0xCBC3, (Operand){Addr_mode::REG, E}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0}}, &Cpu::SET}},
+    {0xC4, (Instr){(Instr_args){"SET",0xCBC4, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0}}, &Cpu::SET}},
+    {0xC5, (Instr){(Instr_args){"SET",0xCBC5, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0}}, &Cpu::SET}},
+    {0xC6, (Instr){(Instr_args){"SET",0xCBC6, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0}}, &Cpu::SET}},
+    {0xC7, (Instr){(Instr_args){"SET",0xCBC7, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0}}, &Cpu::SET}},
+    {0xC8, (Instr){(Instr_args){"SET",0xCBC8, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 1}}, &Cpu::SET}},
+    {0xC9, (Instr){(Instr_args){"SET",0xCBC9, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 1}}, &Cpu::SET}},
+    {0xCA, (Instr){(Instr_args){"SET",0xCBCA, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 1}}, &Cpu::SET}},
+    {0xCB, (Instr){(Instr_args){"SET",0xCBCB, (Operand){Addr_mode::REG, E}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 1}}, &Cpu::SET}},
+    {0xCC, (Instr){(Instr_args){"SET",0xCBCC, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 1}}, &Cpu::SET}},
+    {0xCD, (Instr){(Instr_args){"SET",0xCBCD, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 1}}, &Cpu::SET}},
+    {0xCE, (Instr){(Instr_args){"SET",0xCBCE, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 1}}, &Cpu::SET}},
+    {0xCF, (Instr){(Instr_args){"SET",0xCBCF, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 1}}, &Cpu::SET}},
+    {0xD0, (Instr){(Instr_args){"SET",0xCBD0, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 2}}, &Cpu::SET}},
+    {0xD1, (Instr){(Instr_args){"SET",0xCBD1, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 2}}, &Cpu::SET}},
+    {0xD2, (Instr){(Instr_args){"SET",0xCBD2, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 2}}, &Cpu::SET}},
+    {0xD3, (Instr){(Instr_args){"SET",0xCBD3, (Operand){Addr_mode::REG, E}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 2}}, &Cpu::SET}},
+    {0xD4, (Instr){(Instr_args){"SET",0xCBD4, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 2}}, &Cpu::SET}},
+    {0xD5, (Instr){(Instr_args){"SET",0xCBD5, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 2}}, &Cpu::SET}},
+    {0xD6, (Instr){(Instr_args){"SET",0xCBD6, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 2}}, &Cpu::SET}},
+    {0xD7, (Instr){(Instr_args){"SET",0xCBD7, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 2}}, &Cpu::SET}},
+    {0xD8, (Instr){(Instr_args){"SET",0xCBD8, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 3}}, &Cpu::SET}},
+    {0xD9, (Instr){(Instr_args){"SET",0xCBD9, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 3}}, &Cpu::SET}},
+    {0xDA, (Instr){(Instr_args){"SET",0xCBDA, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 3}}, &Cpu::SET}},
+    {0xDB, (Instr){(Instr_args){"SET",0xCBDB, (Operand){Addr_mode::REG, E}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 3}}, &Cpu::SET}},
+    {0xDC, (Instr){(Instr_args){"SET",0xCBDC, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 3}}, &Cpu::SET}},
+    {0xDD, (Instr){(Instr_args){"SET",0xCBDD, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 3}}, &Cpu::SET}},
+    {0xDE, (Instr){(Instr_args){"SET",0xCBDE, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 3}}, &Cpu::SET}},
+    {0xDF, (Instr){(Instr_args){"SET",0xCBDF, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 3}}, &Cpu::SET}},
+    {0xE0, (Instr){(Instr_args){"SET",0xCBE0, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 4}}, &Cpu::SET}},
+    {0xE1, (Instr){(Instr_args){"SET",0xCBE1, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 4}}, &Cpu::SET}},
+    {0xE2, (Instr){(Instr_args){"SET",0xCBE2, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 4}}, &Cpu::SET}},
+    {0xE3, (Instr){(Instr_args){"SET",0xCBE3, (Operand){Addr_mode::REG, E}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 4}}, &Cpu::SET}},
+    {0xE4, (Instr){(Instr_args){"SET",0xCBE4, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 4}}, &Cpu::SET}},
+    {0xE5, (Instr){(Instr_args){"SET",0xCBE5, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 4}}, &Cpu::SET}},
+    {0xE6, (Instr){(Instr_args){"SET",0xCBE6, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 4}}, &Cpu::SET}},
+    {0xE7, (Instr){(Instr_args){"SET",0xCBE7, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 4}}, &Cpu::SET}},
+    {0xE8, (Instr){(Instr_args){"SET",0xCBE8, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 5}}, &Cpu::SET}},
+    {0xE9, (Instr){(Instr_args){"SET",0xCBE9, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 5}}, &Cpu::SET}},
+    {0xEA, (Instr){(Instr_args){"SET",0xCBEA, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 5}}, &Cpu::SET}},
+    {0xEB, (Instr){(Instr_args){"SET",0xCBEB, (Operand){Addr_mode::REG, E}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 5}}, &Cpu::SET}},
+    {0xEC, (Instr){(Instr_args){"SET",0xCBEC, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 5}}, &Cpu::SET}},
+    {0xED, (Instr){(Instr_args){"SET",0xCBED, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 5}}, &Cpu::SET}},
+    {0xEE, (Instr){(Instr_args){"SET",0xCBEE, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 5}}, &Cpu::SET}},
+    {0xEF, (Instr){(Instr_args){"SET",0xCBEF, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 5}}, &Cpu::SET}},
+    {0xF0, (Instr){(Instr_args){"SET",0xCBF0, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 6}}, &Cpu::SET}},
+    {0xF1, (Instr){(Instr_args){"SET",0xCBF1, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 6}}, &Cpu::SET}},
+    {0xF2, (Instr){(Instr_args){"SET",0xCBF2, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 6}}, &Cpu::SET}},
+    {0xF3, (Instr){(Instr_args){"SET",0xCBF3, (Operand){Addr_mode::REG, E}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 6}}, &Cpu::SET}},
+    {0xF4, (Instr){(Instr_args){"SET",0xCBF4, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 6}}, &Cpu::SET}},
+    {0xF5, (Instr){(Instr_args){"SET",0xCBF5, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 6}}, &Cpu::SET}},
+    {0xF6, (Instr){(Instr_args){"SET",0xCBF6, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 6}}, &Cpu::SET}},
+    {0xF7, (Instr){(Instr_args){"SET",0xCBF7, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 6}}, &Cpu::SET}},
+    {0xF8, (Instr){(Instr_args){"SET",0xCBF8, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::SET}},
+    {0xF9, (Instr){(Instr_args){"SET",0xCBF9, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::SET}},
+    {0xFA, (Instr){(Instr_args){"SET",0xCBFA, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::SET}},
+    {0xFB, (Instr){(Instr_args){"SET",0xCBFB, (Operand){Addr_mode::REG, E}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::SET}},
+    {0xFC, (Instr){(Instr_args){"SET",0xCBFC, (Operand){Addr_mode::REG, H}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::SET}},
+    {0xFD, (Instr){(Instr_args){"SET",0xCBFD, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::SET}},
+    {0xFE, (Instr){(Instr_args){"SET",0xCBFE, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::SET}},
+    {0xFF, (Instr){(Instr_args){"SET",0xCBFF, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::SET}}
 };
 Cpu::Cpu(Memory& memory): mem(memory){
     this->reset();
@@ -323,6 +578,22 @@ void Cpu::set_IE(u16 value){
 void Cpu::set_IF(u16 value){
     this->mem[0xFF0F] = static_cast<u8>(value);
 }
+void Cpu::check_interrupts(){
+    if (this->IME){
+        Int_Info ints = this->get_INTs();
+        for (int i = 0; i < 5; i++){
+            if (ints.INT & (1 << i)){
+                this->IME = false;
+                this->state = RUNNING;
+                ints.IF &= ~(1 << i);
+                this->set_IF(ints.IF);
+                run_ticks(2);
+                this->JP((Instr_args){"RST", 0, (Operand){Addr_mode::IMPL, NO_REG, int_addrs[i]}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 1});
+                break;
+            }
+        }
+    }
+}
 bool Cpu::step(){
     if(this->state == RUNNING){
         Instr curr_instr;
@@ -344,6 +615,9 @@ bool Cpu::step(){
                 this->IME = true;
         }
         return true;
+    }
+    else{
+        run_ticks(1);
     }
     return false;
 }
@@ -503,7 +777,7 @@ std::string Cpu::operand_toString(Operand op){
         case Addr_mode::IMPL: case Addr_mode::MEM16_REG:
             break;
         case Addr_mode::IMPL_SHOW:
-            str+="($"+numToHexString(op.value, op.value > 0xFF? 4: 2)+")";
+            str+=std::to_string(op.value);
             break;
         case Addr_mode::IMM8: 
             this->fetch_operand(op, false);
@@ -567,12 +841,14 @@ std::string Cpu::toString(){
     }
     str += "\nPC: " + numToHexString(this->regs[PC],4) + " SP: " + numToHexString(this->regs[SP],4);
     str+="\n\nInstruction: ";
-    if (this->mem.readX(this->regs[PC]) != 0xCB)
-        str += this->instr_toString(Cpu::instr_map[this->mem.readX(this->regs[PC])]);
-    else{
-        this->regs[PC]++;
-        str += this->instr_toString(Cpu::instr_map_prefix[this->mem.readX(this->regs[PC])]);
-        this->regs[PC]--;
+    if (this->state == RUNNING){
+        if (this->mem.readX(this->regs[PC]) != 0xCB)
+            str += this->instr_toString(Cpu::instr_map[this->mem.readX(this->regs[PC])]);
+        else{
+            this->regs[PC]++;
+            str += this->instr_toString(Cpu::instr_map_prefix[this->mem.readX(this->regs[PC])]);
+            this->regs[PC]--;
+        }
     }
     return str;
 }
@@ -779,6 +1055,57 @@ void Cpu::ROT(Instr_args args){
             break;
     }
     this->write_to_operand(args.dest, temp_result, args.dest.addr_mode);
+}
+void Cpu::SHIFT(Instr_args args){
+    /*Variants:
+    0: SLA
+    1: SRA
+    2: SRL
+    */
+    this->fetch_operand(args.dest);
+    u16 result = args.dest.value;
+    if (args.variant < 1){
+        result = (result << 1);
+        this->regs.set_flag(Flag::C, result > 0xFF);
+        result &= 0xFF;
+    }
+    else{
+        this->regs.set_flag(Flag::C, result & 1);
+        result = ((result >> 1) | ((result & 0x80) && args.variant == 1 ? 0x80 : 0)) & 0xFF;
+    }
+    this->regs.set_flag(Flag::Z, result == 0);
+    this->regs.set_flag(Flag::N, false);
+    this->regs.set_flag(Flag::H, false);
+    this->write_to_operand(args.dest, result, args.dest.addr_mode);
+}
+void Cpu::SWAP(Instr_args args){
+    this->fetch_operand(args.dest);
+    u16 result = ((args.dest.value & 0xF) << 4) | (args.dest.value >> 4);
+    this->regs.set_flag(Flag::Z, result == 0);
+    this->regs.set_flag(Flag::N, false);
+    this->regs.set_flag(Flag::H, false);
+    this->regs.set_flag(Flag::C, false);
+    this->write_to_operand(args.dest, result, args.dest.addr_mode);
+}
+void Cpu::BIT(Instr_args args){
+    this->fetch_operand(args.dest);
+    u8 bit = args.src.value;
+    u8 result = args.dest.value & (1 << bit);
+    this->regs.set_flag(Flag::Z, result == 0);
+    this->regs.set_flag(Flag::N, false);
+    this->regs.set_flag(Flag::H, true);
+}
+void Cpu::RES(Instr_args args){
+    this->fetch_operand(args.dest);
+    u8 bit = args.src.value;
+    u8 result = args.dest.value & ~(1 << bit);
+    this->write_to_operand(args.dest, result);
+}
+void Cpu::SET(Instr_args args){
+    this->fetch_operand(args.dest);
+    u8 bit = args.src.value;
+    u8 result = args.dest.value | (1 << bit);
+    this->write_to_operand(args.dest, result);
 }
 void Cpu::DAA(Instr_args args){
     /*

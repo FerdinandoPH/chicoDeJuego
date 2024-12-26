@@ -185,6 +185,7 @@ class Cpu{
         std::string instr_toString(Instr instr);
         static std::map<u8, Instr> instr_map;
         static std::map<u8, Instr> instr_map_prefix;
+        u16 int_addrs[5] = {0x40, 0x48, 0x50, 0x58, 0x60};
         #pragma region All_instructions
             void noImpl(Instr_args args);
             void X_X(Instr_args args);
@@ -204,6 +205,11 @@ class Cpu{
             void CPL(Instr_args args);
             void JP(Instr_args args);
             void ROT(Instr_args args);
+            void SHIFT(Instr_args args);
+            void SWAP(Instr_args args);
+            void BIT(Instr_args args);
+            void RES(Instr_args args);
+            void SET(Instr_args args);
             void DAA(Instr_args args);
             void SCF(Instr_args args);
             void CCF(Instr_args args);
@@ -222,6 +228,8 @@ class Cpu{
         Int_Info get_INTs();
         void set_IE(u16 value);
         void set_IF(u16 value);
+        void check_interrupts();
+        
 
         std::string toString();
         

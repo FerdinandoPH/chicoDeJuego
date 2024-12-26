@@ -35,7 +35,7 @@ std::string numToHexString(T value, int width=0, bool is_imme8 = false){
         }
     } 
     oss << "0x";
-    oss << std::hex << std::uppercase;
+    oss << std::uppercase << std::hex;
     if (width>1)
         oss << std::setw(width) << std::setfill('0') << value;
     else

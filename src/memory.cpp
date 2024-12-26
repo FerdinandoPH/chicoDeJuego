@@ -2,6 +2,7 @@
 #include <utils.h>
 #include <cstring>
 #include <cstdio>
+#include <algorithm>
 #include <stdlib.h>
 Memory::Memory() {
     memset(_mem, 0, sizeof(_mem));
@@ -10,6 +11,12 @@ Memory::Memory() {
 
 void Memory::write(u16 address, u8 data, bool from_cpu) {
     from_cpu = from_cpu && this->is_protected;
+    if (from_cpu){
+        u16 write_zero [] = {0xFF04}; //DIV
+        if (std::find(std::begin(write_zero), std::end(write_zero), address) != std::end(write_zero)){
+            data = 0;
+        }
+    }
     _mem[address] = data;
 }
 

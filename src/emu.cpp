@@ -2,6 +2,7 @@
 #include <memory.h>
 #include <utils.h>
 #include <cpu.h>
+#include <timer.h>
 #include <stdio.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
@@ -10,6 +11,7 @@
 Debug_mode dbg_level = FULL_DBG;
 Memory* memory = new Memory();
 Cpu* cpu = new Cpu(*memory);
+Timer* timer = new Timer(*cpu, *memory);
 int ticks = 0;
 void delay(u32 ms){
     SDL_Delay(ms);
@@ -18,9 +20,11 @@ void emu_reset(){
     ticks = 0;
     memory->reset();
     cpu->reset();
+    timer->reset();
 }
 void debug_print(){
     std::cout<<"Ticks: "<<ticks<<std::endl;
+    std::cout<<timer->toString()<<std::endl;
     std::cout<<cpu->toString()<<std::endl;
 }
 int emu_run(int argc, char** argv){
@@ -35,6 +39,7 @@ int emu_run(int argc, char** argv){
 
     
     while(cpu->state != QUIT){
+        cpu->check_interrupts();
         if(cpu->state == PAUSED){
             delay(10);
             continue;
@@ -94,6 +99,7 @@ int emu_run(int argc, char** argv){
 void run_ticks(int ticks_to_run){
     for(int i=0; i<ticks_to_run; i++){
         ticks++;
+        timer->tick();
     }
 }
 
