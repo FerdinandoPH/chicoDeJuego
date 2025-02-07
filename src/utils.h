@@ -25,7 +25,7 @@ typedef uint64_t u64;
 #define MAX(a, b) (a > b ? a : b)
 void delay(u32 ms);
 template <typename T>
-std::string numToHexString(T value, int width=0, bool is_imme8 = false){
+std::string numToHexString(T value, int width = 0, bool is_imme8 = false){
     std::ostringstream oss;
     if(is_imme8){
         int8_t signed_value = static_cast<int8_t>(value);
@@ -37,8 +37,8 @@ std::string numToHexString(T value, int width=0, bool is_imme8 = false){
     oss << "0x";
     oss << std::uppercase << std::hex;
     if (width>1)
-        oss << std::setw(width) << std::setfill('0') << value;
+        oss << std::setw(width) << std::setfill('0') << static_cast<int>(value);
     else
-        oss << std::setw(1) << std::setfill('0') << value;
+        oss << std::setw(1) << std::setfill('0') << static_cast<int>(value);
     return oss.str();
 }

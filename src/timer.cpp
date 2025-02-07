@@ -15,7 +15,7 @@ void Timer::reset(){
 }
 void Timer::tick(){
     if(this->cpu.state != STOPPED){
-        this->mem.writeX((u16)0xFF04, (u16) ((this->mem.readX(0xFF04) + 1) & 0xFF));
+        this->mem.writeX((u16)0xFF04, (u16) ((this->mem.readX(0xFF04) + 1) & 0xFF)); //DIV
         Tac_Struct tac = this->get_tac();
         if (tac.enabled){
             this->tima_accumulation++;
@@ -36,8 +36,8 @@ void Timer::tick(){
     }
     if (this->trigger_on_next){
         this->trigger_on_next = false;
-        this->mem.writeX(0xFF05, this->mem.readX(0xFF06));
-        this->mem.writeX((u16)0xFF0F, (u16)(this->mem.readX(0xFF0F) | 0x04));
+        this->mem.writeX(0xFF05, this->mem.readX(0xFF06)); //TIMA = TMA
+        this->mem.writeX((u16)0xFF0F, (u16)(this->mem.readX(0xFF0F) | 0x04)); //Adding timer to IF
     }
 }
 std::string Timer::tac_toString(){

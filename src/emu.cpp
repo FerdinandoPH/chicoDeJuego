@@ -1,4 +1,5 @@
 #include <emu.h>
+#include <debugger.h>
 #include <memory.h>
 #include <utils.h>
 #include <cpu.h>
@@ -7,12 +8,25 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 #include <iostream>
+#include <csignal>
 
-Debug_mode dbg_level = FULL_DBG;
 Memory* memory = new Memory();
 Cpu* cpu = new Cpu(*memory);
 Timer* timer = new Timer(*cpu, *memory);
 int ticks = 0;
+Debugger dbg = Debugger(ticks, *memory, *cpu, *timer);
+void signal_handler(int signal){
+    if (signal == SIGINT){
+        if (dbg.dbg_level != FULL_DBG){
+            std::cout << "SIGINT detected"<<std::endl<<std::endl;
+            dbg.dbg_level = FULL_DBG;
+        }
+        else{
+            std::signal(SIGINT, SIG_DFL);
+            std::raise(SIGINT);
+        }
+    }
+}
 void delay(u32 ms){
     SDL_Delay(ms);
 }
@@ -21,14 +35,12 @@ void emu_reset(){
     memory->reset();
     cpu->reset();
     timer->reset();
+    dbg.clear_breakpoints();
 }
-void debug_print(){
-    std::cout<<"Ticks: "<<ticks<<std::endl;
-    std::cout<<timer->toString()<<std::endl;
-    std::cout<<cpu->toString()<<std::endl;
-}
+
 int emu_run(int argc, char** argv){
-    
+    std::signal(SIGINT, signal_handler);
+
     if(argc < 2 || !memory->load_rom(argv[1])){
         printf("Error loading ROM\n");
         return 1;
@@ -44,51 +56,69 @@ int emu_run(int argc, char** argv){
             delay(10);
             continue;
         }
-        if(dbg_level == PRINT_DBG || dbg_level == FULL_DBG){
-            debug_print();
-            if(dbg_level == FULL_DBG){
-                bool exit = false;
-                while(!exit){
-                    printf("Enter your command (h for help): ");
-                    char command[25];
-                    fgets(command, sizeof(command), stdin);
-                    command[strcspn(command, "\n")] = '\0';
-                    switch(command[0]){
-                        case 0: case 's':
-                            exit = true;
-                            continue;
-                            break;
-                        case 'h':
-                            printf("h: Help\n");
-                            printf("q: Quit\n");
-                            printf("s: Step\n");
-                            printf("c: Continue\n");
-                            printf("r: Reset\n");
-                            printf("m: Memory dump\n");
-                            printf("i: Debugger\n");
-                            break;
-                        case 'q':
-                            printf("Quitting...\n");
-                            exit = true;
-                            cpu->state = QUIT;
-                            break;
-                        case 'c':
-                            cpu->state = RUNNING;
-                            break;
-                        case 'r':
-                            printf("Resetting...\n");
-                            emu_reset();
-                            debug_print();
-                            break;
-                        case 'm':
-                            memory->dump();
-                            break;
-                        case 'i':
-                            std::cout<<"Opening VsCode debugger..."<<std::endl; //Place breakpoint here
-                            break;
+        
+        if(dbg.dbg_level != NO_DBG){
+            dbg.check_breakpoints();
+            if(dbg.dbg_level == PRINT_DBG || dbg.dbg_level == FULL_DBG){
+                dbg.debug_print();
+                if(dbg.dbg_level == FULL_DBG){
+                    bool exit = false;
+                    while(!exit){
+                        printf("Enter your command (h for help): ");
+                        char command[25];
+                        fflush(stdin);
+                        fgets(command, sizeof(command), stdin);
+                        command[strcspn(command, "\n")] = '\0';
+                        switch(command[0]){
+                            case 0: case 's':
+                                exit = true;
+                                continue;
+                                break;
+                            case 'b':
+                                dbg.add_breakpoint_menu();
+                                break;
+                            case 'd':
+                                std::cout<<dbg.breakpoints_toString()<<std::endl;
+                                break;
+                            case 'x':
+                                dbg.del_breakpoint_menu();
+                                break;
+                            case 'h':
+                                printf("h: Help\n");
+                                printf("b: Add breakpoint\n");
+                                printf("d: Display breakpoints\n");
+                                printf("x: Delete breakpoint");
+                                printf("q: Quit\n");
+                                printf("s: Step\n");
+                                printf("c: Continue\n");
+                                printf("r: Reset\n");
+                                printf("m: Memory dump\n");
+                                printf("i: Debugger\n");
+                                break;
+                            case 'q':
+                                printf("Quitting...\n");
+                                exit = true;
+                                cpu->state = QUIT;
+                                break;
+                            case 'c':
+                                dbg.dbg_level = OFF_DBG;
+                                exit = true;
+                                break;
+                            case 'r':
+                                printf("Resetting...\n");
+                                emu_reset();
+                                dbg.debug_print();
+                                break;
+                            case 'm':
+                                memory->dump();
+                                break;
+                            case 'i':
+                                std::cout<<"Opening VsCode debugger..."<<std::endl; //Place breakpoint here
+                                break;
+                        }
                     }
+                    printf("\n");
                 }
-                printf("\n");
             }
         }
         cpu->step();
@@ -102,4 +132,6 @@ void run_ticks(int ticks_to_run){
         timer->tick();
     }
 }
+
+
 

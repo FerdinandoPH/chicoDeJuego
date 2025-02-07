@@ -27,6 +27,9 @@ std::map<Flag,u16> flag_despl = {{Flag::Z, 7}, {Flag::N, 6}, {Flag::H, 5}, {Flag
 std::map<Flag,std::string> flag_names = {{Flag::Z,"Z"}, {Flag::N, "N"}, {Flag::H,"H"}, {Flag::C, "C"}};
 std::map<Cond, std::string> cond_names = {{Cond::ALWAYS, ""}, {Cond::NZ, "NZ"}, {Cond::Z, "Z"}, {Cond::NC, "NC"}, {Cond::C, "C"}};
 std::map<Reg, std::string> reg_names = {{A, "A"}, {F, "F"}, {B, "B"}, {C, "C"}, {D, "D"}, {E, "E"}, {H, "H"}, {L, "L"}, {AF, "AF"}, {BC, "BC"}, {DE, "DE"}, {HL, "HL"}, {SP, "SP"}, {PC, "PC"}};
+std::map<std::string, Reg> reg_map = {
+    {"A", A}, {"F", F}, {"B", B}, {"C", C}, {"D", D}, {"E", E}, {"H", H}, {"L", L}, {"AF", AF}, {"BC", BC}, {"DE", DE}, {"HL", HL}, {"SP", SP}, {"PC", PC}
+};
 std::map<u8,Instr> Cpu::instr_map = {
     {0x00, (Instr){(Instr_args){"NOP",0x00}, &Cpu::NOP}}, //OK
     {0x01, (Instr){(Instr_args){"LD", 0x01, (Operand){Addr_mode::REG16, BC}, (Operand){Addr_mode::IMM16}}, &Cpu::LD}},
@@ -842,10 +845,13 @@ std::string Cpu::toString(){
     str += "\nPC: " + numToHexString(this->regs[PC],4) + " SP: " + numToHexString(this->regs[SP],4);
     str+="\n\nInstruction: ";
     if (this->state == RUNNING){
-        if (this->mem.readX(this->regs[PC]) != 0xCB)
+        if (this->mem.readX(this->regs[PC]) != 0xCB){
+            str += numToHexString(this->mem.readX(this->regs[PC]), 2) + " ==> ";
             str += this->instr_toString(Cpu::instr_map[this->mem.readX(this->regs[PC])]);
+        }
         else{
             this->regs[PC]++;
+            str += numToHexString(0xCB00+this->mem.readX(this->regs[PC]), 4) + " ==> ";
             str += this->instr_toString(Cpu::instr_map_prefix[this->mem.readX(this->regs[PC])]);
             this->regs[PC]--;
         }
