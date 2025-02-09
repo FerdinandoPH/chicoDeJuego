@@ -550,7 +550,7 @@ Cpu::Cpu(Memory& memory): mem(memory){
     this->reset();
 }
 
-void Cpu::reset(){
+void Cpu::reset(){ //Sets states and registers to initial values
     this->state = RUNNING;
     this->IME_pending = 0;
     this->IME = false;
@@ -568,7 +568,7 @@ void Cpu::reset(){
     this->regs[H] = 0x01;
     this->regs[L] = 0x4D;
 }
-Int_Info Cpu::get_INTs(){
+Int_Info Cpu::get_INTs(){ //Provides info about IE and IF in a more programmer-friendly way
     Int_Info info;
     info.IE = this->mem[0xFFFF];
     info.IF = this->mem[0xFF0F];
@@ -581,7 +581,7 @@ void Cpu::set_IE(u16 value){
 void Cpu::set_IF(u16 value){
     this->mem[0xFF0F] = static_cast<u8>(value);
 }
-void Cpu::check_interrupts(){
+void Cpu::check_interrupts(){ //Checks if there are any interrupts to handle. If there are, it handles them
     if (this->IME){
         Int_Info ints = this->get_INTs();
         for (int i = 0; i < 5; i++){
@@ -597,22 +597,22 @@ void Cpu::check_interrupts(){
         }
     }
 }
-bool Cpu::step(){
+bool Cpu::step(){ 
     if(this->state == RUNNING){
         Instr curr_instr;
-        this->opcode = this->mem[this->regs[PC]];
+        this->opcode = this->mem[this->regs[PC]]; //Fetches the opcode
         if (this->opcode != 0xCB)
-            curr_instr = Cpu::instr_map[this->opcode];
-        else{
+            curr_instr = Cpu::instr_map[this->opcode]; //Gets the instruction from the opcode
+        else{ //Handles prefix instructions
             this->regs[PC]++;
             run_ticks(1);
             this->opcode = this->mem[this->regs[PC]];
             curr_instr = Cpu::instr_map_prefix[this->opcode];
         }
-        this->regs[PC]++;
-        run_ticks(1);
-        (this->*(curr_instr.execute))(curr_instr.args);
-        if (this->IME_pending > 0){
+        this->regs[PC]++; // PC should be +1 before executing the operation
+        run_ticks(1); //Fetch time
+        (this->*(curr_instr.execute))(curr_instr.args); //Run appropiate function for the operation, with the adequate args
+        if (this->IME_pending > 0){ //This is implemented to emulate EI's delay
             this->IME_pending--;
             if (this->IME_pending == 0)
                 this->IME = true;
@@ -620,7 +620,7 @@ bool Cpu::step(){
         return true;
     }
     else{
-        run_ticks(1);
+        run_ticks(1); //Otherwise the timer won't move when HALTed
     }
     return false;
 }
@@ -866,7 +866,7 @@ void Cpu::noImpl(Instr_args args){
     return;
 }
 void Cpu::X_X(Instr_args args){
-    std::cout<<"Parsed invalid opcode ("<<args.opcode<<") at "<<numToHexString(this->regs[PC], 4)<<std::endl;
+    std::cout<<"Parsed invalid opcode ("<<numToHexString(args.opcode, 2)<<") at "<<numToHexString(this->regs[PC], 4)<<std::endl;
     this->state = QUIT;
 }
 void Cpu::NOP(Instr_args args){

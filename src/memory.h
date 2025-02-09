@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <utils.h>
+#include <mutex>
 class Memory {
 
     private:
@@ -19,7 +20,7 @@ class Memory {
             u8 header_checksum;
             u16 global_checksum;
         } Cart_header;
-        
+        std::mutex mutex;
         u8 _mem[0x10000];
         u8* _rom = nullptr;
         class Proxy{
@@ -31,10 +32,12 @@ class Memory {
                 operator u8() const { return _memory.read(_addr, true); }
                 Proxy& operator=(u8 data) { _memory.write(_addr, data, true); return *this; }
         };
+        void load_initial_values();
     public:
         Cart_header* rom_header;
         bool is_protected = false;
         Memory();
+        ~Memory();
         u8 readX(u16 address);
         void writeX(u16 address, u8 data);
         void writeX(u16 address, u16 data);
@@ -44,5 +47,6 @@ class Memory {
         bool load_rom(const char* filename);
         void dump();
         void reset();
+
 
 };

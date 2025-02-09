@@ -7,7 +7,7 @@ std::map<std::string, Dbg_cond> dbg_cond_map = {
 std::map<Dbg_cond, std::string> dbg_cond_names = {
     {Dbg_cond::EQ, "=="}, {Dbg_cond::NEQ, "!="}, {Dbg_cond::GT, ">"}, {Dbg_cond::LT, "<"}, {Dbg_cond::GTE, ">="}, {Dbg_cond::LTE, "<="}
 };
-Debugger::Debugger(int& ticks, Memory& mem, Cpu& cpu, Timer& timer) : ticks(ticks), mem(mem), cpu(cpu), timer(timer) {
+Debugger::Debugger(int& ticks, Memory& mem, Cpu& cpu, Timer& timer, Ppu& ppu) : ticks(ticks), mem(mem), cpu(cpu), timer(timer), ppu(ppu){
     this->dbg_level = FULL_DBG;
 }
 
@@ -15,6 +15,7 @@ Debugger::Debugger(int& ticks, Memory& mem, Cpu& cpu, Timer& timer) : ticks(tick
 void Debugger::debug_print(){
     std::cout<<"Ticks: "<<this->ticks<<std::endl;
     std::cout<<this->timer.toString()<<std::endl;
+    std::cout<<this->ppu.toString()<<std::endl;
     std::cout<<this->cpu.toString()<<std::endl;
 }
 

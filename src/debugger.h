@@ -3,6 +3,7 @@
 #include <memory.h>
 #include <cpu.h>
 #include <timer.h>
+#include <ppu.h>
 #include <vector>
 typedef enum {NO_DBG, OFF_DBG, PRINT_DBG, FULL_DBG} Debug_mode;
 enum class Dbg_cond{EQ, NEQ, GT, LT, GTE, LTE};
@@ -27,6 +28,7 @@ class Debugger{
         Memory& mem;
         Cpu& cpu;
         Timer& timer;
+        Ppu& ppu;
         std::vector<u16> pos_breakpoints;
         std::vector<u16> opcode_breakpoints;
         std::vector<Mem_breakpoint> mem_breakpoints;
@@ -34,7 +36,7 @@ class Debugger{
         static bool check_dbg_cond(Dbg_cond cond, u16 val1, u16 val2);
     public:
         Debug_mode dbg_level;
-        Debugger(int& ticks, Memory& mem, Cpu& cpu, Timer& timer);
+        Debugger(int& ticks, Memory& mem, Cpu& cpu, Timer& timer, Ppu& ppu);
         void debug_print();
         bool check_breakpoints();
 

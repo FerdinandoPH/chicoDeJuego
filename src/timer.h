@@ -9,7 +9,7 @@ typedef struct{
 }Tac_Struct;
 class Timer{
     public:
-        u16 clock_table [4] = {256, 4, 16, 64};
+        u16 clock_table [4] = {256, 4, 16, 64}; //All 4 TIMA speeds
         u16 tima_accumulation = 0;
         Tac_Struct get_tac();
         Cpu& cpu;

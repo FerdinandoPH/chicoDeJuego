@@ -4,7 +4,7 @@
 
 #ifdef _WIN32
 
-    void createProcess(const char *proc){
+    void createProcess(const char *proc){ //Used for opening the HEX editor
         STARTUPINFO si;
         PROCESS_INFORMATION pi;
 
@@ -12,17 +12,14 @@
         si.cb = sizeof(si);
         ZeroMemory(&pi, sizeof(pi));
 
-        // Convertir el comando a un array de caracteres modificable
         char cmd[MAX_PATH];
         snprintf(cmd, MAX_PATH, "cmd.exe /C %s", proc);
 
-        // Crear el proceso
         if (!CreateProcess(NULL, cmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
             printf("Error running the following command: %s\n", proc);
             return;
         }
 
-        // Cerrar los handles del proceso y del hilo
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
     }
