@@ -5,10 +5,11 @@ Ui::Ui(Memory& mem, int scale) :  mem(mem), scale(scale) {
 
 }
 void Ui::init(){
-    SDL_CreateWindowAndRenderer(16*8*scale, 32*8*scale, 0, &this->tile_debug_window, &this->tile_debug_renderer);
+    SDL_CreateWindowAndRenderer(16*8*scale, 24*8*scale, 0, &this->tile_debug_window, &this->tile_debug_renderer);
     SDL_SetWindowTitle(this->tile_debug_window, "Tilemap Debugger");
-    this->tile_debug_surface = SDL_CreateRGBSurface(0, 16*8*scale + 16*scale, 32*8*scale + 64*scale, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
-    this->tile_debug_texture = SDL_CreateTexture(this->tile_debug_renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 16*8*scale + 16*scale, 32*8*scale + 64*scale);
+    this->tile_debug_surface = SDL_CreateRGBSurface(0, 16*8*scale + 16*scale, 24*8*scale + 24*scale, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+    this->tile_debug_texture = SDL_CreateTexture(this->tile_debug_renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 16*8*scale + 16*scale, 24*8*scale + 24*scale);
+    SDL_SetWindowPosition(this->tile_debug_window, 1300, 150);
 }
 void Ui::handle_events(){
     SDL_Event event;
@@ -28,8 +29,19 @@ void Ui::handle_events(){
     }
 }
 void Ui::update() {
-    this->handle_events();
-    this->tile_dbg_update();
+    if (this->change_requested){
+        this->screens_on = !this->screens_on;
+        this->change_requested = false;
+        if (this->screens_on){
+            SDL_ShowWindow(this->tile_debug_window);
+        } else {
+            SDL_HideWindow(this->tile_debug_window);
+        }
+    }
+    if(this->screens_on){
+        this->handle_events();
+        this->tile_dbg_update();
+    }
 }
 void Ui::tile_dbg_update(){
     SDL_Rect bg_rect = {0, 0, this->tile_debug_surface->w, this->tile_debug_surface->h};
@@ -37,7 +49,7 @@ void Ui::tile_dbg_update(){
     //384 tiles, 24 x 16
     for (int y = 0; y < 24; y++){
         for (int x = 0; x < 16; x++){
-            tile_display(y*16 + x, x*8*scale + (x*scale), y*8*scale + (y*scale));
+            tile_display(y*16 + x, x*8*scale + (x*scale), y*8*scale + (y*scale)); //tile addr start, x (adding space), y (adding space)
         }
     }
     SDL_UpdateTexture(this->tile_debug_texture, NULL, this->tile_debug_surface->pixels, this->tile_debug_surface->pitch);
@@ -47,9 +59,9 @@ void Ui::tile_dbg_update(){
 }
 void Ui::tile_display(u16 tile, int x, int y){
     SDL_Rect rect;
-    for (int line = 0; line < 16; line++){
-        u8 msb = this->mem.readX(0x8000 + tile*16 + line*2);
-        u8 lsb = this->mem.readX(0x8000 + tile*16 + line*2 + 1);
+    for (int line = 0; line < 16; line+=2){
+        u8 msb = this->mem.readX(0x8000 + tile*16 + line);
+        u8 lsb = this->mem.readX(0x8000 + tile*16 + line + 1);
         for (int pixel = 0; pixel < 8; pixel++){
             u8 color = ((msb >> (7-pixel)) & 0x1) << 1 | ((lsb >> (7-pixel)) & 0x1);
             rect.x = x + pixel*scale;

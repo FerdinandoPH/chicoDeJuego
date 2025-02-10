@@ -6,18 +6,20 @@
 #include <ppu.h>
 #include <vector>
 typedef enum {NO_DBG, OFF_DBG, PRINT_DBG, FULL_DBG} Debug_mode;
-enum class Dbg_cond{EQ, NEQ, GT, LT, GTE, LTE};
+enum class Dbg_cond{EQ, NEQ, GT, LT, GTE, LTE, BET};
 enum class Breakpoint_type{POS, OPCODE, MEM, REG};
 typedef struct{
     u16 addr;
     Dbg_cond cond;
     u8 value;
+    u8 value2 = 0;
     bool current = false;
 } Mem_breakpoint;
 typedef struct{
     Reg reg;
     Dbg_cond cond;
     u16 value;
+    u16 value2 = 0;
     bool current = false;
 } Reg_breakpoint;
 extern std::map<std::string, Dbg_cond> dbg_cond_map;
@@ -33,7 +35,7 @@ class Debugger{
         std::vector<u16> opcode_breakpoints;
         std::vector<Mem_breakpoint> mem_breakpoints;
         std::vector<Reg_breakpoint> reg_breakpoints;
-        static bool check_dbg_cond(Dbg_cond cond, u16 val1, u16 val2);
+        static bool check_dbg_cond(Dbg_cond cond, u16 val1, u16 val2, u16 val3);
     public:
         Debug_mode dbg_level;
         Debugger(int& ticks, Memory& mem, Cpu& cpu, Timer& timer, Ppu& ppu);
@@ -43,13 +45,15 @@ class Debugger{
         void add_breakpoint_menu();
         bool add_pos_breakpoint(std::string pos);
         bool add_opcode_breakpoint(std::string opcode);
-        bool add_mem_breakpoint(std::string addr, std::string cond, std::string value);
-        bool add_reg_breakpoint(std::string reg, std::string cond, std::string value);
+        bool add_mem_breakpoint(std::string addr, std::string cond, std::string value, std::string value2 = 0);
+        bool add_reg_breakpoint(std::string reg, std::string cond, std::string value, std::string value2 = 0);
 
         void del_breakpoint_menu();
+        void reset();
         bool del_breakpoint(Breakpoint_type br_type, size_t index);
         void clear_breakpoints();
         std::string breakpoints_toString();
+        std::vector<u16> last_pc_values;
 };
 
 

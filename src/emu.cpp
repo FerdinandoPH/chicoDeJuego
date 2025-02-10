@@ -10,6 +10,7 @@
 #include <pthread.h>
 #include <iostream>
 #include <csignal>
+#include <mutex>
 
 Memory* memory = new Memory();
 Cpu* cpu = new Cpu(*memory);
@@ -18,17 +19,19 @@ int ticks = 0;
 bool resetting = false;
 Ui* ui = new Ui(*memory, 4);
 Ppu* ppu = new Ppu(*memory, 4);
+std::mutex ui_mutex = std::mutex();
 Debugger dbg = Debugger(ticks, *memory, *cpu, *timer, *ppu);
 
 void signal_handler(int signal){
     if (signal == SIGINT){
+        std::signal(SIGINT, signal_handler);
         if (dbg.dbg_level != FULL_DBG){
             std::cout << "SIGINT detected"<<std::endl<<std::endl;
             dbg.dbg_level = FULL_DBG;
         }
         else{
-            std::signal(SIGINT, SIG_DFL);
-            std::raise(SIGINT);
+            cpu->state = QUIT;
+            std::exit(1);
         }
     }
 }
@@ -44,7 +47,7 @@ void emu_reset(std::binary_semaphore* sem = nullptr){
     memory->reset();
     cpu->reset();
     timer->reset();
-    dbg.clear_breakpoints();
+    dbg.reset();
 }
 void cpu_run(void* thread_args){
     std::binary_semaphore* sem = ((Cpu_thread_args*)thread_args)->sem;
@@ -86,12 +89,19 @@ void cpu_run(void* thread_args){
                                 printf("b: Add breakpoint\n");
                                 printf("d: Display breakpoints\n");
                                 printf("x: Delete breakpoint");
-                                printf("q: Quit\n");
+                                printf("g: Enable/disable screen");
                                 printf("s: Step\n");
                                 printf("c: Continue\n");
                                 printf("r: Reset\n");
                                 printf("m: Memory dump\n");
                                 printf("i: Debugger\n");
+                                printf("v: See last 10 PC values\n");
+                                printf("q: Quit\n");
+                                break;
+                            case 'g':
+                                ui_mutex.lock();
+                                ui->change_requested = true;
+                                ui_mutex.unlock();
                                 break;
                             case 'q':
                                 printf("Quitting...\n");
@@ -110,6 +120,13 @@ void cpu_run(void* thread_args){
                                 break;
                             case 'm':
                                 memory->dump();
+                                break;
+                            case 'v':
+                                std::cout<<"[";
+                                for (int i = 0; i < 10; i++){
+                                    std::cout<<numToHexString(dbg.last_pc_values[i], 4)<<" ";
+                                }
+                                std::cout<<"]"<<std::endl;
                                 break;
                             case 'i':
                                 std::cout<<"Opening VsCode debugger..."<<std::endl; //Place breakpoint here
@@ -140,7 +157,9 @@ int emu_run(int argc, char** argv){
     pthread_create(&cpu_thread, NULL, (void*(*)(void*))cpu_run, &thread_args);
     while(cpu->state != QUIT){
         delay(10);
+        ui_mutex.lock();
         ui->update();
+        ui_mutex.unlock();
         if (resetting){
             resetting = false;
             sem.release();

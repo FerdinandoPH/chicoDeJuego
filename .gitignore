@@ -3,3 +3,4 @@ archive/
 testRoms/
 **/.vscode/
 *.gb
+**/*.hexd

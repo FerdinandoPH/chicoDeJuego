@@ -17,14 +17,21 @@ Memory::~Memory() {
  *readX and writeX will ignore these side effects*/
 void Memory::write(u16 address, u8 data, bool from_cpu) {
     this->mutex.lock();
+    bool write = true;
     from_cpu = from_cpu && this->is_protected;
     if (from_cpu){
+        if(address<0x8000){
+            std::cout<<"Rom write attempt at address: "<<numToHexString(address, 4)<<" and value: "<<numToHexString(data, 2)<<std::endl;
+            write = false;
+        }
         u16 write_zero [] = {0xFF04}; //DIV
         if (std::find(std::begin(write_zero), std::end(write_zero), address) != std::end(write_zero)){
             data = 0;
         }
+        
     }
-    _mem[address] = data;
+    if(write)
+        _mem[address] = data;
     this->mutex.unlock();
 }
 

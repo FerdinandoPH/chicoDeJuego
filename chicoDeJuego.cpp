@@ -30,8 +30,8 @@
 int main(int argc, char **argv) {
     #ifdef _WIN32
         if(argc<2){
-            char* filename = open_file_dialog();
-            //char* filename = "D:\\Users\\perez\\Documents\\0_progra\\chicoDeJuego\\testRoms\\hw.gb";
+            //char* filename = open_file_dialog();
+            char* filename = "D:\\Users\\perez\\Documents\\0_progra\\chicoDeJuego\\testRoms\\drMario.gb";
             if (filename != NULL) {
                 char **new_argv =(char**) malloc((argc + 1) * sizeof(char *));
                 if (new_argv) {

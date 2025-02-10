@@ -780,7 +780,7 @@ std::string Cpu::operand_toString(Operand op){
         case Addr_mode::IMPL: case Addr_mode::MEM16_REG:
             break;
         case Addr_mode::IMPL_SHOW:
-            str+=std::to_string(op.value);
+            str+=numToHexString(op.value);
             break;
         case Addr_mode::IMM8: 
             this->fetch_operand(op, false);
