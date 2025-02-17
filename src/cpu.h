@@ -62,12 +62,12 @@ class Reg_dict {
                 void set(u16 value) { //Baseline for assigning a value to a register
                     if (std::find(composite_regs, composite_regs + size_composite_regs, reg) == composite_regs + size_composite_regs) { //simple
                         if (std::find(byte_regs, byte_regs + size_byte_regs, reg) != byte_regs + size_byte_regs) { //8 bit simple (excluding PC and SP)
-                            value &= 0xFF;
+                            value &= reg == F ? 0xF0 : 0xFF;
                         }
                         parent.regs[reg] = value;
                     } else { //composite
                         parent.regs[reg_pairs[reg].first] = value >> 8;
-                        parent.regs[reg_pairs[reg].second] = value & 0xFF;
+                        parent.regs[reg_pairs[reg].second] = value & (reg == AF ? 0xF0 : 0xFF);
                     }
                 }
                 Proxy& operator=(u16 value) {
@@ -211,7 +211,7 @@ class Cpu{
             void ROT(Instr_args args);
             void SHIFT(Instr_args args);
             void SWAP(Instr_args args);
-            void BIT(Instr_args args);
+            void BIT_INSTR(Instr_args args);
             void RES(Instr_args args);
             void SET(Instr_args args);
             void DAA(Instr_args args);
