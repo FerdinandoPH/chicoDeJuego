@@ -1,7 +1,8 @@
 #pragma once
 #include <utils.h>
 
-#include <map>
+
+#include <unordered_map>
 #include <algorithm>
 #include <string>
 typedef enum {RUNNING, PAUSED, STOPPED, HALTED, QUIT} Cpu_State;
@@ -12,9 +13,9 @@ enum class Addr_mode{IMPL, IMPL_SHOW, IMM8, IMMe8, IMM16, REG, REG16, REG16_PLUS
 
 enum class Cond{ALWAYS, Z, NZ, C, NC};
 enum class Flag{Z, N, H, C};
-extern std::map<Cpu_State, std::string> cpu_state_names; //Map of cpu states to their string representation
-extern std::map<Flag, u16> flag_despl; //Indicates the bit of each flag in F
-extern std::map<Flag,std::string> flag_names; // Map of flags to their string representation
+extern std::unordered_map<Cpu_State, std::string> cpu_state_names; //Map of cpu states to their string representation
+extern std::unordered_map<Flag, u16> flag_despl; //Indicates the bit of each flag in F
+extern std::unordered_map<Flag,std::string> flag_names; // Map of flags to their string representation
 extern Flag flag_arr[]; //Array of all flags
 extern int size_flag_arr;
 //typedef enum {REG_A, REG_F, REG_B, REG_C, REG_D, REG_E, REG_H, REG_L, REG_SP, REG_PC, REG_AF, BC, DE, HL} Reg;
@@ -25,10 +26,10 @@ extern Reg composite_regs[]; //Array of all composite registers
 extern int size_composite_regs;
 extern Reg byte_regs[]; //Array of all simple registers
 extern int size_byte_regs;
-extern std::map<Reg, std::pair<Reg, Reg>> reg_pairs; //Maps a composite register to its two simple registers
-extern std::map<Reg, std::string> reg_names; //Map of registers to their string representation
-extern std::map<std::string, Reg> reg_map; //Map of string representation of registers to their enum
-extern std::map<Cond, std::string> cond_names; //Map of conditions to their string representation
+extern std::unordered_map<Reg, std::pair<Reg, Reg>> reg_pairs; //Maps a composite register to its two simple registers
+extern std::unordered_map<Reg, std::string> reg_names; //Map of registers to their string representation
+extern std::unordered_map<std::string, Reg> reg_map; //Map of string representation of registers to their enum
+extern std::unordered_map<Cond, std::string> cond_names; //Map of conditions to their string representation
 
 typedef struct{
     Addr_mode addr_mode = Addr_mode::IMPL;
@@ -42,7 +43,7 @@ class Reg_dict {
      *It also allows easy access and modification of flags in the F register.
      */
     private:
-        std::map<Reg, u16> regs;
+        std::unordered_map<Reg, u16> regs;
 
         class Proxy { //This allows to customize the functionality of the [], = and various operators for the Reg_dict class
             private:
@@ -52,7 +53,7 @@ class Reg_dict {
                 Proxy(Reg_dict& parent, Reg reg) : parent(parent), reg(reg) {}
 
                 operator u16() const { // Reading value (either simple or composite)
-                    if (std::find(composite_regs, composite_regs + size_composite_regs, reg) == composite_regs + size_composite_regs) { //simple
+                    if (!is_composite_reg(reg)) { //simple
                         return parent.regs.at(reg);
                     } else { //composite
                         u16 composite_value = (static_cast<u16>(parent.regs.at(reg_pairs.at(reg).first)) << 8) | parent.regs.at(reg_pairs.at(reg).second);
@@ -60,8 +61,8 @@ class Reg_dict {
                     }
                 }
                 void set(u16 value) { //Baseline for assigning a value to a register
-                    if (std::find(composite_regs, composite_regs + size_composite_regs, reg) == composite_regs + size_composite_regs) { //simple
-                        if (std::find(byte_regs, byte_regs + size_byte_regs, reg) != byte_regs + size_byte_regs) { //8 bit simple (excluding PC and SP)
+                    if (!is_composite_reg(reg)) { //simple
+                        if (is_byte_reg(reg)) { //8 bit simple (excluding PC and SP)
                             value &= reg == F ? 0xF0 : 0xFF;
                         }
                         parent.regs[reg] = value;
@@ -155,6 +156,22 @@ class Reg_dict {
                 regs[F] &= ~(1 << flag_despl[flag]);
             }
         }
+        static inline bool is_composite_reg(Reg reg) {
+            switch(reg){
+                case AF: case BC: case DE: case HL:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+        static inline bool is_byte_reg(Reg reg){
+            switch(reg){
+                case A: case F: case B: case C: case D: case E: case H: case L:
+                    return true;
+                default:
+                    return false;
+            }
+        }
 
 };
 
@@ -181,14 +198,16 @@ class Cpu{
     private:
         Memory& mem;
         void fetch_operand(Operand& op, bool affect=true);
-        void write_to_operand_8bit(Operand &op, u16 value);
-        void write_to_operand_16bit(Operand &op, u16 value);
+        void write_to_operand_8bit(Operand &op, u16 value, Addr_mode src_addr);
+        void write_to_operand_16bit(Operand &op, u16 value, Addr_mode src_addr);
         void write_to_operand(Operand &op, u16 value, Addr_mode src_addr = Addr_mode::IMPL);
         bool check_cond(Cond cond);
         std::string operand_toString(Operand op);
         std::string instr_toString(Instr instr);
-        static std::map<u8, Instr> instr_map;
-        static std::map<u8, Instr> instr_map_prefix;
+        //static std::map<u8, Instr> instr_map;
+        static Instr instr_table[0x100];
+        //static std::map<u8, Instr> instr_map_prefix;
+        static Instr instr_table_prefix[0x100];
         u16 int_addrs[5] = {0x40, 0x48, 0x50, 0x58, 0x60};
         #pragma region All_instructions
             void noImpl(Instr_args args);
@@ -228,7 +247,7 @@ class Cpu{
         u16* dest;
         Reg_dict regs;
         Cpu(Memory& mem);
-        bool step();
+        bool step(FILE* log_pc);
         Int_Info get_INTs();
         void set_IE(u16 value);
         void set_IF(u16 value);

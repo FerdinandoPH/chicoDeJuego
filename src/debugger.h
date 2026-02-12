@@ -5,6 +5,8 @@
 #include <timer.h>
 #include <ppu.h>
 #include <vector>
+#include <unordered_map>
+#include <chrono>
 typedef enum {NO_DBG, OFF_DBG, PRINT_DBG, FULL_DBG} Debug_mode;
 enum class Dbg_cond{EQ, NEQ, GT, LT, GTE, LTE, BET};
 enum class Breakpoint_type{POS, OPCODE, MEM, REG};
@@ -22,8 +24,8 @@ typedef struct{
     u16 value2 = 0;
     bool current = false;
 } Reg_breakpoint;
-extern std::map<std::string, Dbg_cond> dbg_cond_map;
-extern std::map<Dbg_cond, std::string> dbg_cond_names;
+extern std::unordered_map<std::string, Dbg_cond> dbg_cond_map;
+extern std::unordered_map<Dbg_cond, std::string> dbg_cond_names;
 class Debugger{
     private:
         int& ticks;
@@ -35,6 +37,7 @@ class Debugger{
         std::vector<u16> opcode_breakpoints;
         std::vector<Mem_breakpoint> mem_breakpoints;
         std::vector<Reg_breakpoint> reg_breakpoints;
+        std::chrono::time_point<std::chrono::system_clock> last_time;
         static bool check_dbg_cond(Dbg_cond cond, u16 val1, u16 val2, u16 val3);
     public:
         Debug_mode dbg_level;
@@ -50,6 +53,8 @@ class Debugger{
 
         void del_breakpoint_menu();
         void reset();
+        void start_chrono();
+        std::chrono::duration<double, std::micro> get_chrono();
         bool del_breakpoint(Breakpoint_type br_type, size_t index);
         void clear_breakpoints();
         std::string breakpoints_toString();

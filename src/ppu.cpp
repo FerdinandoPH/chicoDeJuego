@@ -1,6 +1,6 @@
 #include <ppu.h>
 
-std::map<Ppu_mode, std::string> ppu_mode_names = {
+std::unordered_map<Ppu_mode, std::string> ppu_mode_names = {
     {Ppu_mode::OAM, "OAM"}, {Ppu_mode::TRANSFER, "TRANSFER"}, {Ppu_mode::VBLANK, "VBLANK"}, {Ppu_mode::HBLANK, "HBLANK"}
 };
 Ppu::Ppu(Memory& mem, int scale) : mem(mem), scale(scale) {

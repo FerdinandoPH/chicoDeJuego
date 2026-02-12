@@ -16,31 +16,47 @@ Memory::~Memory() {
 /*When reading/writing to memory from CPU, sometimes some side effects will occur
  *readX and writeX will ignore these side effects*/
 void Memory::write(u16 address, u8 data, bool from_cpu) {
-    this->mutex.lock();
-    bool write = true;
+    std::lock_guard<std::mutex> lock(this->mutex);
+    bool writable = true;
     from_cpu = from_cpu && this->is_protected;
     if (from_cpu){
         if(address<0x8000){
             std::cout<<"Rom write attempt at address: "<<numToHexString(address, 4)<<" and value: "<<numToHexString(data, 2)<<std::endl;
-            write = false;
+            //writable = false;
+            return;
         }
-        u16 write_zero [] = {0xFF04}; //DIV
-        if (std::find(std::begin(write_zero), std::end(write_zero), address) != std::end(write_zero)){
+        if(dma->transferring && !BETWEEN(address, 0xFE00, 0xFE9F)){
+            std::cout<<"Writing during DMA transfer at address: "<<numToHexString(address, 4)<<" and value: "<<numToHexString(data, 2)<<std::endl;
+            //writable = false;
+            return;
+        }
+        std::unordered_set<u16> write_zero = {DIV};
+        if (write_zero.find(address) != write_zero.end()){
             data = 0;
+        }
+        else if (address == DMA_DIR){
+            if (data > 0xDF){
+                std::cout<<"Invalid DMA source address: "<<numToHexString(data, 2)<<std::endl;
+                data = 0xDF;
+            }
+            this->dma->start(static_cast<u16>(data)*0x100, 0xFE00, 0xA0);
         }
         
     }
-    if(write)
+    if(writable)
         _mem[address] = data;
-    this->mutex.unlock();
 }
 
 u8 Memory::read(u16 address, bool from_cpu) {
-    this->mutex.lock();
+    std::lock_guard<std::mutex> lock(this->mutex);
     from_cpu = from_cpu && this->is_protected;
-    u8 data = _mem[address];
-    this->mutex.unlock();
-    return data;
+    if(from_cpu){
+        if(dma->transferring && !BETWEEN(address, 0xFE00, 0xFE9F)){
+            std::cout<<"Reading during DMA transfer at address: "<<numToHexString(address, 4)<<std::endl;
+            return 0xFF;
+        }
+    }
+    return _mem[address];
 }
 
 u8 Memory::readX(u16 address) { 
@@ -56,7 +72,7 @@ void Memory::writeX(u16 address, u16 data) {
 
 
 bool Memory::load_rom(const char* filename) { //Loads the rom to the file (deletes previous rom)
-    this->mutex.lock();
+    std::lock_guard<std::mutex> lock(this->mutex);
     FILE* file = fopen(filename, "rb");
     if (file) {
         fseek(file, 0, SEEK_END);
@@ -71,16 +87,14 @@ bool Memory::load_rom(const char* filename) { //Loads the rom to the file (delet
         this->rom_header = (Cart_header*)(_rom + 0x100);
         this->rom_header->title[15] = 0;
         memcpy(_mem, _rom, 0x8000);
-        this->mutex.unlock();
         return true;
     }
-    this->mutex.unlock();
     return false;
 
 }
 
 void Memory::dump() { //Writes the current state of memory into a file and opens it with a HEX editor
-    this->mutex.lock();
+    std::lock_guard<std::mutex> lock(this->mutex);
     FILE* file = fopen("mem.hexd", "wb");
     if (file) {
         size_t writtenData = fwrite(_mem, 1, 0x10000, file);
@@ -95,17 +109,19 @@ void Memory::dump() { //Writes the current state of memory into a file and opens
     else {
         printf("Error writing mem.hexd\n");
     }
-    this->mutex.unlock();
 }
 
 void Memory::reset(){
-    this->mutex.lock();
+    std::lock_guard<std::mutex> lock(this->mutex);
     memset(_mem, 0, sizeof(_mem));
     if (_rom != NULL)
         memcpy(_mem, _rom, 0x8000);
-    this->mutex.unlock();
+    this->load_initial_values();
 }
 
 void Memory::load_initial_values(){
     _mem[0xFF41] = 0x85; //LCD STAT
+}
+void Memory::set_dma(Dma* dma){
+    this->dma = dma;
 }

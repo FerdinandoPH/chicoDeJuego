@@ -4,3 +4,4 @@ testRoms/
 **/.vscode/
 *.gb
 **/*.hexd
+**/*.log

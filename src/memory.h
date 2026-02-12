@@ -2,6 +2,10 @@
 #include <cstdint>
 #include <utils.h>
 #include <mutex>
+#include <dma.h>
+#include <unordered_set>
+#define DMA_DIR 0xFF46
+#define DIV 0xFF04
 class Memory {
 
     private:
@@ -23,6 +27,7 @@ class Memory {
         std::mutex mutex;
         u8 _mem[0x10000];
         u8* _rom = nullptr;
+        std::unordered_set<u16> write_zero = {DIV};
         class Proxy{
             private:
                 Memory& _memory;
@@ -33,6 +38,7 @@ class Memory {
                 Proxy& operator=(u8 data) { _memory.write(_addr, data, true); return *this; }
         };
         void load_initial_values();
+        Dma* dma;
     public:
         Cart_header* rom_header;
         bool is_protected = false;
@@ -47,6 +53,7 @@ class Memory {
         bool load_rom(const char* filename);
         void dump();
         void reset();
+        void set_dma(Dma* dma);
 
 
 };

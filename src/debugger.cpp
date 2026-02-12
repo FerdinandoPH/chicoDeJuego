@@ -1,14 +1,15 @@
 #include <debugger.h>
 
 
-std::map<std::string, Dbg_cond> dbg_cond_map = {
+std::unordered_map<std::string, Dbg_cond> dbg_cond_map = {
     {"==", Dbg_cond::EQ}, {"!=", Dbg_cond::NEQ}, {">", Dbg_cond::GT}, {"<", Dbg_cond::LT}, {">=", Dbg_cond::GTE}, {"<=", Dbg_cond::LTE}, {"><", Dbg_cond::BET}
 };
-std::map<Dbg_cond, std::string> dbg_cond_names = {
+std::unordered_map<Dbg_cond, std::string> dbg_cond_names = {
     {Dbg_cond::EQ, "=="}, {Dbg_cond::NEQ, "!="}, {Dbg_cond::GT, ">"}, {Dbg_cond::LT, "<"}, {Dbg_cond::GTE, ">="}, {Dbg_cond::LTE, "<="}, {Dbg_cond::BET, "><"}
 };
 Debugger::Debugger(int& ticks, Memory& mem, Cpu& cpu, Timer& timer, Ppu& ppu) : ticks(ticks), mem(mem), cpu(cpu), timer(timer), ppu(ppu){
     this->dbg_level = FULL_DBG;
+    this->start_chrono();
     this->last_pc_values = std::vector<u16>(10, 0x100);
 }
 
@@ -226,43 +227,44 @@ void Debugger::add_breakpoint_menu(){
         printf("x: Cancel\n");
         std::string type = "";
         std::string pos, addr, value, value2, opcode, cond, reg;
-        std::cin>>type;
+        std::getline(std::cin, type);
         switch(type[0]){
             case 'p':
                 printf("Enter position: ");
-                std::cin>>pos;
+                std::getline(std::cin, pos);
                 ok = this->add_pos_breakpoint(pos);
                 break;
             case 'o':
                 printf("Enter opcode: ");
-                std::cin>>opcode;
+                std::getline(std::cin, opcode);
                 ok = this->add_opcode_breakpoint(opcode);
                 break;
             case 'm':
                 printf("Enter address: ");
-                std::cin>>addr;
+                std::getline(std::cin, addr);
                 printf("Enter condition (==, !=, >, <, >=, <=, ><): ");
-                std::cin>>cond;
+                std::getline(std::cin, cond);
                 printf("Enter value: ");
-                std::cin>>value;
+                std::getline(std::cin, value);
                 if(cond == "><"){
                     printf("Enter second value: ");
-                    std::cin>>value2;
+                    std::getline(std::cin, value2);
                     ok = this->add_mem_breakpoint(addr, cond, value, value2);
                 }
-                else
-                    ok = this->add_mem_breakpoint(addr, cond, value);
+                else{
+                    ok = this->add_mem_breakpoint(addr, cond, value, "");
+                }
                 break;
             case 'r':
                 printf("Enter register: ");
-                std::cin>>reg;
+                std::getline(std::cin, reg);
                 printf("Enter condition (==, !=, >, <, >=, <=, ><): ");
-                std::cin>>cond;
+                std::getline(std::cin, cond);
                 printf("Enter value: ");
-                std::cin>>value;
+                std::getline(std::cin, value);
                 if (cond == "><"){
                     printf("Enter second value: ");
-                    std::cin>>value2;
+                    std::getline(std::cin, value2);
                     ok = this->add_reg_breakpoint(reg, cond, value, value2);
                 }
                 else
@@ -295,27 +297,30 @@ void Debugger::del_breakpoint_menu(){
         std::cout<<"r: Register"<<std::endl;
         std::cout<<"c: Clear all breakpoints"<<std::endl;
         std::cout<<"x: Cancel"<<std::endl;
-        std::cin>>br_choice;
+        std::getline(std::cin, br_choice);
         switch (br_choice[0]){
             case 'p':
                 std::cout<<"Enter the index of the position breakpoint you wish to delete: ";
-                std::cin>>index;
+                std::getline(std::cin, br_choice);
+                index = std::stoi(br_choice); //Cuidado, cambiado por copilot
                 ok = this->del_breakpoint(Breakpoint_type::POS, index);
-
                 break;
             case 'o':
                 std::cout<<"Enter the index of the opcode breakpoint you wish to delete: ";
-                std::cin>>index;
+                std::getline(std::cin, br_choice);
+                index = std::stoi(br_choice);
                 ok = this->del_breakpoint(Breakpoint_type::OPCODE, index);
                 break;
             case 'm':
                 std::cout<<"Enter the index of the memory breakpoint you wish to delete: ";
-                std::cin>>index;
+                std::getline(std::cin, br_choice);
+                index = std::stoi(br_choice);
                 ok = this->del_breakpoint(Breakpoint_type::MEM, index);
                 break;
             case 'r':
                 std::cout<<"Enter the index of the register breakpoint you wish to delete: ";
-                std::cin>>index;
+                std::getline(std::cin, br_choice);
+                index = std::stoi(br_choice);
                 ok = this->del_breakpoint(Breakpoint_type::REG, index);
                 break;
             case 'c':
@@ -341,4 +346,14 @@ void Debugger::reset(){
     this->clear_breakpoints();
     this->dbg_level = FULL_DBG;
     this->last_pc_values = std::vector<u16>(10, 0x100);
+}
+
+void Debugger::start_chrono(){
+    this->last_time = std::chrono::high_resolution_clock::now();
+}
+
+std::chrono::duration<double, std::micro> Debugger::get_chrono(){
+    return std::chrono::duration_cast<std::chrono::duration<double, std::micro>>(
+        std::chrono::high_resolution_clock::now() - this->last_time
+    );
 }

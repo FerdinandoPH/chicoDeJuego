@@ -1,12 +1,12 @@
 #pragma once
 #include <utils.h>
 #include <memory.h>
-#include <map>
+#include <unordered_map>
 #define LY_ADDR 0xFF44
 #define LCD_STAT_ADDR 0xFF41
 #define LYC_ADDR 0xFF45
 enum class Ppu_mode{OAM, TRANSFER, VBLANK, HBLANK};
-extern std::map<Ppu_mode, std::string> ppu_mode_names;
+extern std::unordered_map<Ppu_mode, std::string> ppu_mode_names;
 class Ppu{
     private:
         Memory& mem;

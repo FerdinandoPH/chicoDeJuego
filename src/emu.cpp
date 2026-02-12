@@ -7,12 +7,15 @@
 #include <stdio.h>
 #include <ui.h>
 #include <ppu.h>
+#include <dma.h>
 #include <pthread.h>
 #include <iostream>
 #include <csignal>
 #include <mutex>
+#include <chrono>
 
 Memory* memory = new Memory();
+Dma* dma = new Dma(memory);
 Cpu* cpu = new Cpu(*memory);
 Timer* timer = new Timer(*cpu, *memory);
 int ticks = 0;
@@ -21,7 +24,7 @@ Ui* ui = new Ui(*memory, 4);
 Ppu* ppu = new Ppu(*memory, 4);
 std::mutex ui_mutex = std::mutex();
 Debugger dbg = Debugger(ticks, *memory, *cpu, *timer, *ppu);
-
+u16 cycles_per_inst = 0;
 void signal_handler(int signal){
     if (signal == SIGINT){
         std::signal(SIGINT, signal_handler);
@@ -51,6 +54,8 @@ void emu_reset(std::binary_semaphore* sem = nullptr){
 }
 void cpu_run(void* thread_args){
     std::binary_semaphore* sem = ((Cpu_thread_args*)thread_args)->sem;
+    std::chrono::duration<double, std::micro> elapsed = dbg.get_chrono();
+    FILE* log_pc = fopen("chicoDeJuego.log", "wb");
     while(cpu->state != QUIT){
         cpu->check_interrupts();
         if(cpu->state == PAUSED){
@@ -59,8 +64,12 @@ void cpu_run(void* thread_args){
         }
         
         if(dbg.dbg_level != NO_DBG){
+            
             dbg.check_breakpoints();
+            
             if(dbg.dbg_level == PRINT_DBG || dbg.dbg_level == FULL_DBG){
+                
+                std::cout<<"Elapsed time: "<<elapsed.count()<<"us"<<std::endl;
                 dbg.debug_print();
                 if(dbg.dbg_level == FULL_DBG){
                     bool exit = false;
@@ -133,16 +142,23 @@ void cpu_run(void* thread_args){
                                 break;
                         }
                     }
+                    
                     printf("\n");
+                    
                 }
             }
         }
-        cpu->step();
+        dbg.start_chrono();
+        cpu->step(log_pc);
+        fwrite(&cycles_per_inst, sizeof(u16), 1, log_pc); cycles_per_inst = 0;
+        elapsed = dbg.get_chrono();
 
     }
+    fclose(log_pc);
 }
 int emu_run(int argc, char** argv){
     std::signal(SIGINT, signal_handler);
+    memory->set_dma(dma);
     ui->init();
     if(argc < 2 || !memory->load_rom(argv[1])){
         printf("Error loading ROM\n");
@@ -168,12 +184,14 @@ int emu_run(int argc, char** argv){
     return 0;
 }
 void run_ticks(int ticks_to_run){
+    cycles_per_inst += ticks_to_run;
     for(int m = 0; m < ticks_to_run; m++){
         for (int tick = 0; tick < 4; tick++){
             ticks++;
             timer->tick();
             ppu->tick();
         }
+        dma->tick();
     }
 }
 
