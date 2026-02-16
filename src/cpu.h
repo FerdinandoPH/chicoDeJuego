@@ -247,7 +247,7 @@ class Cpu{
         u16* dest;
         Reg_dict regs;
         Cpu(Memory& mem);
-        bool step(FILE* log_pc);
+        bool step();
         Int_Info get_INTs();
         void set_IE(u16 value);
         void set_IF(u16 value);

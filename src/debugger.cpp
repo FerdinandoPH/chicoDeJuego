@@ -268,7 +268,7 @@ void Debugger::add_breakpoint_menu(){
                     ok = this->add_reg_breakpoint(reg, cond, value, value2);
                 }
                 else
-                    ok = this->add_reg_breakpoint(reg, cond, value);
+                    ok = this->add_reg_breakpoint(reg, cond, value, "");
                 break;
             case 'x':
                 ok = true;

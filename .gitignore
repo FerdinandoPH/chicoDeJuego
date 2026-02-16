@@ -5,3 +5,4 @@ testRoms/
 *.gb
 **/*.hexd
 **/*.log
+**/*.emulog

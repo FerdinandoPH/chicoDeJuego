@@ -1380,18 +1380,14 @@ void Cpu::check_interrupts(){ //Checks if there are any interrupts to handle. If
         }
     }
 }
-bool Cpu::step(FILE* log_pc){
-    // if(this->regs[PC] != last_pc){
-    u16 new_pc = this->regs[PC];
-    fwrite(&new_pc, sizeof(u16), 1, log_pc);
-    //     last_pc = new_pc;
-    // }
+bool Cpu::step(){
     //auto start_time = std::chrono::high_resolution_clock::now();
     if(this->state == RUNNING){
         Instr curr_instr;
         this->opcode = this->mem[this->regs[PC]]; //Fetches the opcode
-        if (this->opcode != 0xCB)
+        if (this->opcode != 0xCB){
             curr_instr = Cpu::instr_table[this->opcode]; //Gets the instruction from the opcode
+        }
         else{ //Handles prefix instructions
             this->regs[PC]++;
             run_ticks(1);
@@ -1442,7 +1438,7 @@ void Cpu::fetch_operand(Operand& op, bool affect){
             break;
         case Addr_mode::REG16_PLUS_IMMe8:
             pc_update = 1;
-            ticks_to_add = 1;
+            ticks_to_add = 2;
             op.value = this->regs[op.reg] + static_cast<int8_t>(this->mem[this->regs[PC]]);
             this->regs.set_flag(Flag::Z, false);
             this->regs.set_flag(Flag::N, false);
@@ -1703,14 +1699,17 @@ void Cpu::CCF(Instr_args args){
 void Cpu::LD(Instr_args args){
     this->fetch_operand(args.src);
     this->write_to_operand(args.dest, args.src.value, args.src.addr_mode);
+    if(opcode==0xF9) run_ticks(1);
 }
 void Cpu::PUSH_POP(Instr_args args){
     /*Variants
     0: PUSH
     1: POP
     */
-    if (args.variant == 0)
+    if (args.variant == 0){
+        run_ticks(1);
         this->regs[SP] -= 2;
+    }
     this->LD(args);
     if (args.variant == 1)
         this->regs[SP] += 2;
@@ -1743,6 +1742,7 @@ void Cpu::ADD(Instr_args args){
         }
     }
     if(args.dest.addr_mode == Addr_mode::REG16) run_ticks(1);
+    if(args.src.addr_mode == Addr_mode::IMMe8) run_ticks(1);
     this->write_to_operand(args.dest, temp_result, args.dest.addr_mode);
 }
 void Cpu::SUB(Instr_args args){
@@ -1972,7 +1972,8 @@ void Cpu::JP(Instr_args args){
             if(args.variant == 3)
                 this->IME = true;
         }
-        run_ticks(1);
+        if(args.dest.addr_mode != Addr_mode::REG16)
+            run_ticks(1);
         this->regs[PC] = args.dest.value;
     }
 }
