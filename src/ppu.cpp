@@ -3,7 +3,12 @@
 std::unordered_map<Ppu_mode, std::string> ppu_mode_names = {
     {Ppu_mode::OAM, "OAM"}, {Ppu_mode::TRANSFER, "TRANSFER"}, {Ppu_mode::VBLANK, "VBLANK"}, {Ppu_mode::HBLANK, "HBLANK"}
 };
+
+
 Ppu::Ppu(Memory& mem, int scale) : mem(mem), scale(scale) {
+    this->fetcher = new Pixel_Fetcher(mem, this->line_oam, this->sprites_in_line);
+    this->fifo = new Pixel_FIFO(mem, this->line_oam, this->sprites_in_line, this->fetcher);
+    this->fetcher->set_fifo(this->fifo);
     this->ppu_mode = Ppu_mode::VBLANK;
 }
 
@@ -12,11 +17,18 @@ void Ppu::tick(){
     switch(this->ppu_mode){
         case Ppu_mode::OAM:
             if (this->line_ticks >= 80){
+                this->load_oam();
+                this->load_line_oam();
+
                 this->change_mode(Ppu_mode::TRANSFER);
+                this->fetcher->new_line();
+                this->fifo->clear();
             }
             break;
         case Ppu_mode::TRANSFER:
-            if (this->line_ticks >= 252){
+            if(line_ticks % 2) fetcher->tick();
+            fifo->tick();
+            if (this->fifo->get_x() >= 160){
                 this->change_mode(Ppu_mode::HBLANK);
             }
             break;
@@ -48,6 +60,25 @@ void Ppu::tick(){
             break;
 
 
+    }
+}
+void Ppu::load_oam(){
+    for (int i = 0; i < 40; i++){
+        u8 data[4];
+        for (int j = 0; j < 4; j++){
+            data[j] = this->mem.readX(0xFE00 + i*4 + j);
+        }
+        this->oam[i] = Sprite(data);
+    }
+}
+void Ppu::load_line_oam(){
+    int ly = this->mem.readX(LY_ADDR);
+    int obj_height = (this->mem.readX(LCDC_ADDR) & 0x4) ? 16 : 8; // If bit 2 of LCDC is enabled, sprites are 8x16
+    this->sprites_in_line = 0;
+    for (int i = 0; i < 40 && this->sprites_in_line < 10; i++){
+        if (ly >= this->oam[i].y_pos - 16 && ly < this->oam[i].y_pos - 16 + obj_height){
+            this->line_oam[this->sprites_in_line++] = this->oam[i];
+        }
     }
 }
 void Ppu::inc_ly(){

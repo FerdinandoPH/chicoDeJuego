@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.22 FATAL_ERROR)
+set(CMAKE_GENERATOR "MinGW Makefiles" CACHE INTERNAL "" FORCE)
 project(chicoDeJuego CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(MAIN_SOURCE chicoDeJuego.cpp)

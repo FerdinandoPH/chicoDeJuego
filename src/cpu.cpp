@@ -1373,7 +1373,7 @@ void Cpu::check_interrupts(){ //Checks if there are any interrupts to handle. If
                 this->state = RUNNING;
                 ints.IF &= ~(1 << i);
                 this->set_IF(ints.IF);
-                run_ticks(2);
+                run_ticks(1);
                 this->JP((Instr_args){"RST", 0, (Operand){Addr_mode::IMPL, NO_REG, int_addrs[i]}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 1});
                 break;
             }
