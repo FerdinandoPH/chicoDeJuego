@@ -56,22 +56,30 @@ class Pixel_Fetcher{
 class Pixel_FIFO{
     private:
         Memory& mem;
-        u8 lx;
+        u8 dx;
+        u8 fine_scx;
         Pixel_Fetcher* fetcher;
         Sprite (&line_oam)[10];
         int& sprites_in_line;
         bool waiting_for_sprite = false;
+        bool scx_done = false;
+        int scx_pending = 0;
+        bool bg_win_transition_done = false;
+        bool spr_in_pixel_done = false;
         std::deque<Pixel> pixels = std::deque<Pixel>();
-        std::deque<Pixel> obj_pixels = std::deque<Pixel>();
         std::deque<Sprite> sprites_in_pixel = std::deque<Sprite>();
+        void discard_left_pixel();
+        void request_sprite();
+        bool check_if_bg_win_transition();
     public:
         Pixel_FIFO(Memory& mem, Sprite (&line_oam)[10], int& sprites_in_line, Pixel_Fetcher* fetcher);
         void new_line();
         u8 get_lx();
         void push(Pixel* pixels);
-        void push_obj(Pixel* pixels);
+        void mix_sprite(Pixel* fetcher_pixels);
         void tick();
-        bool is_bg_empty();
+        int get_size();
+        void clear();
 };
 struct Sprite{
     u8 y_pos;

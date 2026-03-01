@@ -6,7 +6,7 @@ std::unordered_map<Ppu_mode, std::string> ppu_mode_names = {
 
 
 Ppu::Ppu(Memory& mem, int scale) : mem(mem), scale(scale) {
-    this->fetcher = new Pixel_Fetcher(mem, this->line_oam, this->sprites_in_line);
+    this->fetcher = new Pixel_Fetcher(mem);
     this->fifo = new Pixel_FIFO(mem, this->line_oam, this->sprites_in_line, this->fetcher);
     this->fetcher->set_fifo(this->fifo);
     this->ppu_mode = Ppu_mode::VBLANK;
@@ -22,13 +22,13 @@ void Ppu::tick(){
 
                 this->change_mode(Ppu_mode::TRANSFER);
                 this->fetcher->new_line();
-                this->fifo->clear();
+                this->fifo->new_line();
             }
             break;
         case Ppu_mode::TRANSFER:
             if(line_ticks % 2) fetcher->tick();
             fifo->tick();
-            if (this->fifo->get_x() >= 160){
+            if (this->fifo->get_lx() >= 160){
                 this->change_mode(Ppu_mode::HBLANK);
             }
             break;

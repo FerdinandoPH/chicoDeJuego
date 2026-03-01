@@ -1,6 +1,6 @@
 #include <ppu.h>
 
-Pixel_Fetcher::Pixel_Fetcher(Memory& mem, Sprite (&line_oam)[10], int& sprites_in_line) : mem(mem), line_oam(line_oam), sprites_in_line(sprites_in_line) {
+Pixel_Fetcher::Pixel_Fetcher(Memory& mem) : mem(mem) {
     this->state = Pixel_fetcher_state::READ_TILE;
     this->tile_type = Tile_type::BG;
 }
@@ -23,9 +23,9 @@ void Pixel_Fetcher::new_frame(){
     this->state = Pixel_fetcher_state::READ_TILE;
     this->tile_type = Tile_type::BG;
 }
-void Pixel_Fetcher::fetch_sprite(Sprite spr, int line){
+void Pixel_Fetcher::fetch_sprite(Sprite spr){
     this->spr = spr;
-    this->spr_line = line;
+    this->spr_line = dy - spr.y_pos + 16;
     this->tile_type_bak = this->tile_type;
     this->tile_type = Tile_type::SPRITE;
     this->state = Pixel_fetcher_state::READ_TILE;
@@ -41,7 +41,7 @@ void Pixel_Fetcher::tick(){
         case Pixel_fetcher_state::READ_TILE:
             switch(this->tile_type){
                 case Tile_type::SPRITE:
-                    u16 final_index = spr.tile_index;
+                    u8 final_index = spr.tile_index;
                     if (mem.readX(LCDC_ADDR) & 0x4){ // If sprites are 8x16
                         final_index &= 0xFE;
                         if (spr_line > 8 ^ spr.y_flip){ // If the sprite is in the second tile, or if it's flipped and the line is in the first tile
@@ -53,7 +53,7 @@ void Pixel_Fetcher::tick(){
                 case Tile_type::BG:
                     u16 map_addr;
                     map_addr = mem.readX(LCDC_ADDR) & 8 ? 0x9C00 : 0x9800;
-                    map_addr += (dx + mem.readX(SCX_ADDR)) / 8 + ((mem.readX(SCY_ADDR) + dy) / 8) * 32;
+                    map_addr += ((dx + mem.readX(SCX_ADDR)) % 256) / 8 + (((mem.readX(SCY_ADDR) + dy) % 256) / 8) * 32;
                     tile_addr = mem.readX(map_addr) * 16 + ((mem.readX(LCDC_ADDR) & 0x10) ? 0x8000 : 0x8800);
                     break;
                 case Tile_type::WINDOW:
@@ -78,8 +78,9 @@ void Pixel_Fetcher::tick(){
             if(this->tile_type == Tile_type::SPRITE){
                 fifo->mix_sprite(pixels);
                 this->tile_type = this->tile_type_bak;
+                this->state = Pixel_fetcher_state::READ_TILE;
             }
-            else if(fifo->size() <= 8){
+            else if(fifo->get_size() <= 8){
                 fifo->push(pixels);
                 dx += 8;
                 this->state = Pixel_fetcher_state::READ_TILE;
@@ -114,4 +115,50 @@ void Pixel_Fetcher::assemble_pixels(){
         }
         pixels[is_x_flipped_sprite ? 7 - i : i] = pixel;
     }
+}
+
+// FIFO
+void Pixel_FIFO::new_line(){
+    this->dx = 0;
+    pixels.clear();
+    sprites_in_pixel.clear();
+    waiting_for_sprite = false;
+    bg_win_transition_done = false;
+    fine_scx = mem.readX(SCX_ADDR) % 8;
+    u8 scx_fine = mem.readX(SCX_ADDR) % 8;
+    if (scx_fine > 0){
+        scx_pending = scx_fine;
+        scx_done = false;
+    }
+    else{
+        scx_pending = 0;
+        scx_done = true;
+    }
+}
+void Pixel_FIFO::push(Pixel* fetcher_pixels){
+    for (int i = 0; i < 8; i++){
+        this->pixels.push_back(fetcher_pixels[i]);
+    }
+}
+void Pixel_FIFO::tick(){
+    if (scx_pending > 0 && get_size() > scx_pending){
+        discard_left_pixel();
+    }else if (!waiting_for_sprite){
+        if(!sprites_in_pixel.empty()){ // More sprites to mix
+            request_sprite();
+        }else if(this->get_size() > 8){
+
+        }
+    }
+}
+void Pixel_FIFO::discard_left_pixel(){
+    pixels.pop_front();
+    scx_pending--;
+    if (scx_pending == 0) scx_done = true;
+}
+void Pixel_FIFO::request_sprite(){
+    fetcher->fetch_sprite(sprites_in_pixel.front());
+    sprites_in_pixel.pop_front();
+    waiting_for_sprite = true;
+    if (sprites_in_pixel.empty()) spr_in_pixel_done = true;
 }
