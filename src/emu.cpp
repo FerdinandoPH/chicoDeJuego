@@ -21,7 +21,7 @@ Timer* timer = new Timer(*cpu, *memory);
 int ticks = 0;
 bool resetting = false;
 Ui* ui = new Ui(*memory, 4);
-Ppu* ppu = new Ppu(*memory, 4);
+Ppu* ppu = new Ppu(*memory, ui, 4);
 std::mutex ui_mutex = std::mutex();
 Debugger dbg = Debugger(ticks, *memory, *cpu, *timer, *ppu);
 void signal_handler(int signal){

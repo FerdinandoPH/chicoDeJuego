@@ -1,6 +1,8 @@
 #pragma once
 #include <utils.h>
+#include <screen_specs.h>
 #include <memory.h>
+#include <ui.h>
 #include <unordered_map>
 #include <deque>
 #define LY_ADDR 0xFF44
@@ -11,68 +13,16 @@
 #define SCY_ADDR 0xFF42
 #define WX_ADDR 0xFF4B
 #define WY_ADDR 0xFF4A
-#define XRES 160
-#define YRES 144
+#define BGP_ADDR 0xFF47
+#define OBP0_ADDR 0xFF48
+#define OBP1_ADDR 0xFF49
+
 enum class Ppu_mode{OAM, TRANSFER, VBLANK, HBLANK};
 extern std::unordered_map<Ppu_mode, std::string> ppu_mode_names;
-
-enum class Pixel_fetcher_state{READ_TILE, READ_DATA_LO, READ_DATA_HI, PUSH};
+enum class Pixel_fetcher_state{READ_TILE, READ_TILE_2, READ_DATA_LO, READ_DATA_LO_2, READ_DATA_HI, READ_DATA_HI_2, PUSH};
 enum class Tile_type{BG, WINDOW, SPRITE};
 enum class Palette{BG, OBJ0, OBJ1};
 class Pixel_FIFO;
-typedef struct{
-    u8 color_index;
-    Palette palette;
-    Tile_type tile_type;
-}Pixel;
-class Pixel_Fetcher{
-    private:
-        Memory& mem;
-        Sprite spr;
-        int spr_line;
-        Pixel_FIFO* fifo;
-        u16 tile_addr;
-        u8 dx;
-        u8 dy;
-        u8 win_dx;
-        u8 win_dy;
-        u8 tile_lo;
-        u8 tile_hi;
-        Pixel pixels[8];
-        Pixel_fetcher_state state;
-        Tile_type tile_type;
-        Tile_type tile_type_bak;
-        u8 get_line_to_read();
-        void assemble_pixels();
-    public:
-        Pixel_Fetcher(Memory& mem);
-        void set_fifo(Pixel_FIFO* fifo);
-        void tick();
-        void fetch_sprite(Sprite spr);
-        void change_general_state(Pixel_fetcher_state state);
-        void new_line();
-        void new_frame();
-};
-class Pixel_FIFO{
-    private:
-        Memory& mem;
-        u8 lx;
-        Pixel_Fetcher* fetcher;
-        Sprite (&line_oam)[10];
-        int& sprites_in_line;
-        bool waiting_for_sprite = false;
-        std::deque<Pixel> pixels = std::deque<Pixel>();
-        std::deque<Pixel> obj_pixels = std::deque<Pixel>();
-        std::deque<Sprite> sprites_in_pixel = std::deque<Sprite>();
-    public:
-        Pixel_FIFO(Memory& mem, Sprite (&line_oam)[10], int& sprites_in_line, Pixel_Fetcher* fetcher);
-        void new_line();
-        u8 get_lx();
-        void push(Pixel* pixels);
-        void push_obj(Pixel* pixels);
-        void tick();
-        bool is_bg_empty();
-};
 struct Sprite{
     u8 y_pos;
     u8 x_pos;
@@ -95,9 +45,76 @@ struct Sprite{
         this->bank_1 = (data[3] & 0x8) != 0;
     };
 };
+typedef struct{
+    u8 color_index;
+    Palette palette;
+    Tile_type tile_type;
+    bool spr_priority;
+}Pixel;
+
+class Pixel_Fetcher{
+    private:
+        Memory& mem;
+        Sprite spr;
+        int spr_line;
+        Pixel_FIFO* fifo;
+        u16 tile_addr;
+        u8 f_lx;
+        u8 f_ly;
+        Pixel_fetcher_state state;
+        Tile_type tile_type;
+        Tile_type tile_type_bak;
+        u8 tile_lo;
+        u8 tile_hi;
+        Pixel pixel_buffer[8];
+        u8 get_line_to_read();
+        void assemble_pixels();
+    public:
+        Pixel_Fetcher(Memory& mem);
+        void set_fifo(Pixel_FIFO* fifo);
+        void tick();
+        void fetch_sprite(Sprite spr);
+        void change_to_win();
+        void new_line();
+        void new_frame();
+};
+class Pixel_FIFO{
+    private:
+        Memory& mem;
+        Ui* ui;
+        Sprite (&line_oam)[10];
+        int& sprites_in_line;
+        Pixel_Fetcher* fetcher;
+        u8 lx;
+        u8 ly;
+        u8 win_ly;
+        bool waiting_for_sprite = false;
+        bool wx_cond = false;
+        bool wy_cond = false;
+        bool window_active = false;
+        bool sprites_in_pixel_done = false;
+        u8 pixels_to_discard = 0;
+        std::deque<Pixel> pixels = std::deque<Pixel>();
+        std::deque<Pixel> obj_pixels = std::deque<Pixel>();
+        std::deque<Sprite> sprites_in_pixel = std::deque<Sprite>();
+        u32 get_final_color(Pixel pixel);
+    public:
+        Pixel_FIFO(Memory& mem, Ui* ui, Sprite (&line_oam)[10], int& sprites_in_line, Pixel_Fetcher* fetcher);
+        void new_line();
+        void new_frame();
+        void set_wy_cond(bool win_cond);
+        u8 get_lx();
+        u8 get_win_ly();
+        void push(Pixel* pixels);
+        void push_obj(Pixel* pixels);
+        void tick();
+        bool is_bg_empty();
+};
+
 class Ppu{
     private:
         Memory& mem;
+        Ui* ui;
         Pixel_Fetcher* fetcher;
         Pixel_FIFO* fifo;
         int scale;
@@ -112,7 +129,7 @@ class Ppu{
         Sprite line_oam[10];
         int sprites_in_line;
         u32* video_buffer = new u32[XRES * YRES];
-        Ppu(Memory& mem, int scale = 4);
+        Ppu(Memory& mem, Ui* ui, int scale = 4);
         void tick();
         std::string toString();
 };

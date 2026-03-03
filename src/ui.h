@@ -1,4 +1,6 @@
 #pragma once
+#include <utils.h>
+#include <screen_specs.h>
 #include <memory.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
@@ -16,15 +18,15 @@ class Ui{
         SDL_Texture* tile_debug_texture;
         SDL_Surface* tile_debug_surface;
         bool screens_on = true;
-        
+        u32* video_buffer = new u32[XRES * YRES];
         void tile_dbg_update();
         void tile_display(u16 tile, int x, int y);
         void handle_events();
     public:
-        static const u32 gb_palette[4];
         Ui(Memory& mem, int scale = 4);
         bool change_requested = false;
         void init();
         void update();
         void toggle_screens();
+        void write_pixel(int x, int y, u32 color);
 };

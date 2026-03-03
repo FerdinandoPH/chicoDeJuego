@@ -1,5 +1,5 @@
 #include <ui.h>
-const u32 Ui::gb_palette[4] = {0xFF9BBC0F, 0xFF8BAC0F, 0xFF306230, 0xFF0F380F};
+
 
 Ui::Ui(Memory& mem, int scale) :  mem(mem), scale(scale) {
 
@@ -67,7 +67,7 @@ void Ui::tile_display(u16 tile, int x, int y){
             rect.x = x + pixel*scale;
             rect.y = y + (line/2)*scale;
             rect.w = rect.h = scale;
-            SDL_FillRect(this->tile_debug_surface, &rect, this->gb_palette[color]);
+            SDL_FillRect(this->tile_debug_surface, &rect, gb_palette[color]);
         }
     }
 }
