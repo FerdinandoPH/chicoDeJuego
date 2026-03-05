@@ -4,7 +4,7 @@
 #include <cstdio>
 #include <algorithm>
 #include <stdlib.h>
-Memory::Memory() : mutex() {
+Memory::Memory() : mem_mutex() {
     memset(_mem, 0, sizeof(_mem));
     this->reset();
 }
@@ -16,7 +16,7 @@ Memory::~Memory() {
 /*When reading/writing to memory from CPU, sometimes some side effects will occur
  *readX and writeX will ignore these side effects*/
 void Memory::write(u16 address, u8 data, bool from_cpu) {
-    std::lock_guard<std::mutex> lock(this->mutex);
+    std::lock_guard<std::mutex> lock(this->mem_mutex);
     bool writable = true;
     from_cpu = from_cpu && this->is_protected;
     if (from_cpu){
@@ -30,7 +30,16 @@ void Memory::write(u16 address, u8 data, bool from_cpu) {
             //writable = false;
             return;
         }
-        std::unordered_set<u16> write_zero = {DIV};
+        if(vram_locked && BETWEEN(address, 0x8000, 0x9FFF)){
+            std::cout<<"Writing to VRAM while locked at address: "<<numToHexString(address, 4)<<" and value: "<<numToHexString(data, 2)<<std::endl;
+            //writable = false;
+            return;
+        }
+        if(oam_locked && BETWEEN(address, 0xFE00, 0xFE9F)){
+            std::cout<<"Writing to OAM while locked at address: "<<numToHexString(address, 4)<<" and value: "<<numToHexString(data, 2)<<std::endl;
+            //writable = false;
+            return;
+        }
         if (write_zero.find(address) != write_zero.end()){
             data = 0;
         }
@@ -48,11 +57,19 @@ void Memory::write(u16 address, u8 data, bool from_cpu) {
 }
 
 u8 Memory::read(u16 address, bool from_cpu) {
-    std::lock_guard<std::mutex> lock(this->mutex);
+    std::lock_guard<std::mutex> lock(this->mem_mutex);
     from_cpu = from_cpu && this->is_protected;
     if(from_cpu){
         if(dma->transferring && !BETWEEN(address, 0xFE00, 0xFE9F)){
             std::cout<<"Reading during DMA transfer at address: "<<numToHexString(address, 4)<<std::endl;
+            return 0xFF;
+        }
+        if(vram_locked && BETWEEN(address, 0x8000, 0x9FFF)){
+            std::cout<<"Reading from VRAM while locked at address: "<<numToHexString(address, 4)<<std::endl;
+            return 0xFF;
+        }
+        if(oam_locked && BETWEEN(address, 0xFE00, 0xFE9F)){
+            std::cout<<"Reading from OAM while locked at address: "<<numToHexString(address, 4)<<std::endl;
             return 0xFF;
         }
     }
@@ -72,7 +89,7 @@ void Memory::writeX(u16 address, u16 data) {
 
 
 bool Memory::load_rom(const char* filename) { //Loads the rom to the file (deletes previous rom)
-    std::lock_guard<std::mutex> lock(this->mutex);
+    std::lock_guard<std::mutex> lock(this->mem_mutex);
     FILE* file = fopen(filename, "rb");
     if (file) {
         fseek(file, 0, SEEK_END);
@@ -94,7 +111,7 @@ bool Memory::load_rom(const char* filename) { //Loads the rom to the file (delet
 }
 
 void Memory::dump() { //Writes the current state of memory into a file and opens it with a HEX editor
-    std::lock_guard<std::mutex> lock(this->mutex);
+    std::lock_guard<std::mutex> lock(this->mem_mutex);
     FILE* file = fopen("mem.hexd", "wb");
     if (file) {
         size_t writtenData = fwrite(_mem, 1, 0x10000, file);
@@ -112,7 +129,7 @@ void Memory::dump() { //Writes the current state of memory into a file and opens
 }
 
 void Memory::reset(){
-    std::lock_guard<std::mutex> lock(this->mutex);
+    std::lock_guard<std::mutex> lock(this->mem_mutex);
     memset(_mem, 0, sizeof(_mem));
     if (_rom != NULL)
         memcpy(_mem, _rom, 0x8000);
@@ -121,7 +138,14 @@ void Memory::reset(){
 
 void Memory::load_initial_values(){
     _mem[0xFF41] = 0x85; //LCD STAT
+    _mem[0xFF40] = 0x91; //LCDC
 }
 void Memory::set_dma(Dma* dma){
     this->dma = dma;
+}
+void Memory::set_vram_lock(bool locked){
+    this->vram_locked = locked;
+}
+void Memory::set_oam_lock(bool locked){
+    this->oam_locked = locked;
 }

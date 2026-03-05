@@ -13,6 +13,21 @@ Ppu::Ppu(Memory& mem, Ui* ui, int scale) : mem(mem), ui(ui), scale(scale) {
 }
 
 void Ppu::tick(){
+    if(!(this->mem.readX(LCDC_ADDR) & 0x80)){
+        if(!is_on) return;
+        mem.set_vram_lock(false);
+        mem.set_oam_lock(false);
+        this->ppu_mode = Ppu_mode::VBLANK;
+        this->line_ticks = 0;
+        this->mem.writeX(LY_ADDR, (u8)0);
+        this->mem.writeX(LCD_STAT_ADDR, static_cast<u8>(this->mem.readX(LCD_STAT_ADDR) & 0b11111100));
+        is_on = false;
+        return;
+    }
+    if(!is_on){
+        this->mem.writeX(LY_ADDR, (u8)144);
+        is_on = true;
+    }
     this->line_ticks++;
     switch(this->ppu_mode){
         case Ppu_mode::OAM:
@@ -21,14 +36,12 @@ void Ppu::tick(){
                 this->load_line_oam();
 
                 this->change_mode(Ppu_mode::TRANSFER);
-                this->fetcher->new_line();
-                this->fifo->new_line();
             }
             break;
         case Ppu_mode::TRANSFER:
             fetcher->tick();
             fifo->tick();
-            if (this->fifo->get_lx() >= 160){
+            if (this->fifo->get_lx() >= 168){
                 this->change_mode(Ppu_mode::HBLANK);
             }
             break;
@@ -44,6 +57,8 @@ void Ppu::tick(){
                 }
                 else{
                     this->change_mode(Ppu_mode::OAM);
+                    this->fetcher->new_line();
+                    this->fifo->new_line();
                 }
                 this->line_ticks = 0;
             }
@@ -55,6 +70,10 @@ void Ppu::tick(){
                 if(this->mem.readX(LY_ADDR) >= 154){
                     this->mem.writeX(LY_ADDR, (u8)0);
                     this->change_mode(Ppu_mode::OAM);
+                    this->fetcher->new_frame();
+                    this->fifo->new_frame();
+                    this->fetcher->new_line();
+                    this->fifo->new_line();
                 }
             }
             break;
@@ -72,12 +91,14 @@ void Ppu::load_oam(){
     }
 }
 void Ppu::load_line_oam(){
-    int ly = this->mem.readX(LY_ADDR);
-    int obj_height = (this->mem.readX(LCDC_ADDR) & 0x4) ? 16 : 8; // If bit 2 of LCDC is enabled, sprites are 8x16
     this->sprites_in_line = 0;
-    for (int i = 0; i < 40 && this->sprites_in_line < 10; i++){
-        if (ly >= this->oam[i].y_pos - 16 && ly < this->oam[i].y_pos - 16 + obj_height){
-            this->line_oam[this->sprites_in_line++] = this->oam[i];
+    if(this->mem.readX(LCDC_ADDR) & 0x2){ //If sprites are enabled (bit 1)
+        int ly = this->mem.readX(LY_ADDR);
+        int obj_height = (this->mem.readX(LCDC_ADDR) & 0x4) ? 16 : 8; // If bit 2 of LCDC is enabled, sprites are 8x16
+        for (int i = 0; i < 40 && this->sprites_in_line < 10; i++){
+            if (ly >= this->oam[i].y_pos - 16 && ly < this->oam[i].y_pos - 16 + obj_height){
+                this->line_oam[this->sprites_in_line++] = this->oam[i];
+            }
         }
     }
 }
@@ -108,14 +129,20 @@ void Ppu::change_mode(Ppu_mode mode){
     switch(mode){
         case Ppu_mode::OAM:
             lcd_stat |= 2;
+            mem.set_oam_lock(true);
             break;
         case Ppu_mode::TRANSFER:
+            mem.set_vram_lock(true);
             lcd_stat |= 3;
             break;
         case Ppu_mode::HBLANK:
+            mem.set_vram_lock(false);
+            mem.set_oam_lock(false);
             lcd_stat |= 0;
             break;
         case Ppu_mode::VBLANK:
+            mem.set_vram_lock(false);
+            mem.set_oam_lock(false);
             lcd_stat |= 1;
             break;
     }
@@ -124,7 +151,11 @@ void Ppu::change_mode(Ppu_mode mode){
 
 std::string Ppu::toString(){
     std::string str = "PPU: ";
+    str+= "LCD: "+std::string((this->mem.readX(LCDC_ADDR) & 0x80) ? "ON" : "OFF")+"  ";
     str += "Mode: "+ppu_mode_names[this->ppu_mode]+"  ";
     str += "LY: "+std::to_string((int)this->mem.readX(LY_ADDR))+" ";
+    str += "LX: "+std::to_string(this->fifo->get_lx())+" ";
+    str += "SCX: "+std::to_string((int)this->mem.readX(SCX_ADDR))+" ";
+    str += "SCY: "+std::to_string((int)this->mem.readX(SCY_ADDR))+" ";
     return str;
 }

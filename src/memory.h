@@ -24,7 +24,7 @@ class Memory {
             u8 header_checksum;
             u16 global_checksum;
         } Cart_header;
-        std::mutex mutex;
+        std::mutex mem_mutex;
         u8 _mem[0x10000];
         u8* _rom = nullptr;
         std::unordered_set<u16> write_zero = {DIV};
@@ -39,6 +39,8 @@ class Memory {
         };
         void load_initial_values();
         Dma* dma;
+        bool vram_locked = false;
+        bool oam_locked = false;
     public:
         Cart_header* rom_header;
         bool is_protected = false;
@@ -54,6 +56,8 @@ class Memory {
         void dump();
         void reset();
         void set_dma(Dma* dma);
+        void set_vram_lock(bool locked);
+        void set_oam_lock(bool locked);
 
 
 };

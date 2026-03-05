@@ -24,6 +24,7 @@ Ui* ui = new Ui(*memory, 4);
 Ppu* ppu = new Ppu(*memory, ui, 4);
 std::mutex ui_mutex = std::mutex();
 Debugger dbg = Debugger(ticks, *memory, *cpu, *timer, *ppu);
+
 void signal_handler(int signal){
     if (signal == SIGINT){
         std::signal(SIGINT, signal_handler);
@@ -157,6 +158,7 @@ void cpu_run(void* thread_args){
 }
 int emu_run(int argc, char** argv){
     std::signal(SIGINT, signal_handler);
+    ui->set_debugger(&dbg);
     memory->set_dma(dma);
     ui->init();
     if(argc < 2 || !memory->load_rom(argv[1])){

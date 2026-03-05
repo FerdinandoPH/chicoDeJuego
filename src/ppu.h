@@ -59,8 +59,13 @@ class Pixel_Fetcher{
         int spr_line;
         Pixel_FIFO* fifo;
         u16 tile_addr;
+        u8 f_scx;
+        u8 f_fine_scx;
+        u8 f_scy;
         u8 f_lx;
         u8 f_ly;
+        u8 f_win_lx;
+        u8 f_win_ly;
         Pixel_fetcher_state state;
         Tile_type tile_type;
         Tile_type tile_type_bak;
@@ -71,6 +76,7 @@ class Pixel_Fetcher{
         void assemble_pixels();
     public:
         Pixel_Fetcher(Memory& mem);
+        void set_f_win_ly(u8 new_value);
         void set_fifo(Pixel_FIFO* fifo);
         void tick();
         void fetch_sprite(Sprite spr);
@@ -87,7 +93,9 @@ class Pixel_FIFO{
         Pixel_Fetcher* fetcher;
         u8 lx;
         u8 ly;
+        u8 triggered_wx;
         u8 win_ly;
+        bool increase_win_ly = false;
         bool waiting_for_sprite = false;
         bool wx_cond = false;
         bool wy_cond = false;
@@ -102,13 +110,13 @@ class Pixel_FIFO{
         Pixel_FIFO(Memory& mem, Ui* ui, Sprite (&line_oam)[10], int& sprites_in_line, Pixel_Fetcher* fetcher);
         void new_line();
         void new_frame();
-        void set_wy_cond(bool win_cond);
         u8 get_lx();
+        u8 get_triggered_wx();
         u8 get_win_ly();
         void push(Pixel* pixels);
         void push_obj(Pixel* pixels);
         void tick();
-        bool is_bg_empty();
+        bool is_main_fifo_empty();
 };
 
 class Ppu{
@@ -118,6 +126,7 @@ class Ppu{
         Pixel_Fetcher* fetcher;
         Pixel_FIFO* fifo;
         int scale;
+        bool is_on = true;
         Ppu_mode ppu_mode;
         int line_ticks = 0;
         void inc_ly();
