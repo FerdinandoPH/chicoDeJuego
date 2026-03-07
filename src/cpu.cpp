@@ -1936,7 +1936,7 @@ void Cpu::DAA(Instr_args args){
     bool new_carry = false;
     if (this->regs.get_flag(Flag::H) || (!this->regs.get_flag(Flag::N) && (this->regs[A] & 0xF) > 9))
         offset = 6;
-    if (this->regs.get_flag(Flag::C) || (!this->regs.get_flag(Flag::N) && (this->regs[A] & 0xF0) > 0x99)){
+    if (this->regs.get_flag(Flag::C) || (!this->regs.get_flag(Flag::N) && this->regs[A] > 0x99)){
         offset |= 0x60;
         new_carry = true;
     }

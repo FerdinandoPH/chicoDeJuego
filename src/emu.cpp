@@ -55,7 +55,7 @@ void emu_reset(std::binary_semaphore* sem = nullptr){
 void cpu_run(void* thread_args){
     std::binary_semaphore* sem = ((Cpu_thread_args*)thread_args)->sem;
     std::chrono::duration<double, std::micro> elapsed = dbg.get_chrono();
-    FILE* log_pc = fopen("chicoDeJuego.emulog", "wb");
+    //FILE* log_pc = fopen("chicoDeJuego.emulog", "wb");
     while(cpu->state != QUIT){
         cpu->check_interrupts();
         if(cpu->state == PAUSED){
@@ -154,7 +154,7 @@ void cpu_run(void* thread_args){
         elapsed = dbg.get_chrono();
 
     }
-    fclose(log_pc);
+    //fclose(log_pc);
 }
 int emu_run(int argc, char** argv){
     std::signal(SIGINT, signal_handler);
