@@ -15,7 +15,11 @@ void Timer::reset(){ //Everything else is reset by mem
 }
 void Timer::tick(){
     if(this->cpu.state != STOPPED){ //When stopped, the timer stops working
-        this->mem.writeX((u16)0xFF04, (u16) ((this->mem.readX(0xFF04) + 1) & 0xFF)); //Increment DIV
+        internal_clock++;
+        if(internal_clock >=256){
+            internal_clock = 0;
+            this->mem.writeX((u16)0xFF04, (u16) ((this->mem.readX(0xFF04) + 1) & 0xFF)); //Increment DIV
+        }
         Tac_Struct tac = this->get_tac();
         if (tac.enabled){
             this->tima_accumulation++; //Clock_select determine how many timer ticks it takes to increment TIMA
@@ -33,6 +37,7 @@ void Timer::tick(){
     }
     else{
         this->mem.writeX((u16)0xFF04, (u16)0); //When stopped, DIV is always 0
+        internal_clock = 0;
     }
     if (this->trigger_on_next){ //TIMA's actual int trig
         this->trigger_on_next = false;

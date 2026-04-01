@@ -118,7 +118,7 @@ void Ui::tile_display(u16 tile, int x, int y){
 }
 void Ui::write_pixel(int x, int y, u32 color){
     if (x < 0 || x >= XRES || y < 0 || y >= YRES) return;
-    std::lock_guard<std::mutex> lock(video_buffer_mutex);
+    std::scoped_lock<std::mutex> lock(video_buffer_mutex);
     this->video_buffer[y * XRES + x] = color;
 }
 void Ui::main_screen_update(){

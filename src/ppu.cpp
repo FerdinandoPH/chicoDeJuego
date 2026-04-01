@@ -93,11 +93,12 @@ void Ppu::load_oam(){
 void Ppu::load_line_oam(){
     this->sprites_in_line = 0;
     if(this->mem.readX(LCDC_ADDR) & 0x2){ //If sprites are enabled (bit 1)
-        int ly = this->mem.readX(LY_ADDR);
+        u8 ly = this->mem.readX(LY_ADDR);
         int obj_height = (this->mem.readX(LCDC_ADDR) & 0x4) ? 16 : 8; // If bit 2 of LCDC is enabled, sprites are 8x16
         for (int i = 0; i < 40 && this->sprites_in_line < 10; i++){
             if (ly >= this->oam[i].y_pos - 16 && ly < this->oam[i].y_pos - 16 + obj_height){
-                this->line_oam[this->sprites_in_line++] = this->oam[i];
+                this->line_oam[this->sprites_in_line] = this->oam[i];
+                this->sprites_in_line++;
             }
         }
     }

@@ -161,6 +161,7 @@ void Pixel_FIFO::new_line(){
     this->lx = 0;
     this->ly++;
     this->waiting_for_sprite = false;
+    this->sprites_in_pixel_done = false;
     this->pixels.clear();
     this->obj_pixels.clear();
     this->sprites_in_pixel.clear();
@@ -237,7 +238,7 @@ void Pixel_FIFO::tick(){
     if(!sprites_in_pixel_done){
         for(int i = 0; i < sprites_in_line; i++){
             Sprite spr = line_oam[i];
-            if(spr.x_pos == lx + 8){
+            if(spr.x_pos == lx){
                 sprites_in_pixel.push_back(spr);
             }
         }
@@ -270,4 +271,5 @@ void Pixel_FIFO::tick(){
         this->triggered_wx = lx;
     }
     lx++;
+    sprites_in_pixel_done = false;
 }

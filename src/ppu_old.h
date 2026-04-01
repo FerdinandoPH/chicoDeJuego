@@ -89,7 +89,7 @@ struct Sprite{
     bool y_flip;
     bool x_flip;
     u8 palette;
-    bool bank_1;
+    bool cgb_bank_1;
     //Other attributes are CGB exclusive
     Sprite() = default;
     Sprite(u8 data[4]){
@@ -100,7 +100,7 @@ struct Sprite{
         this->y_flip = (data[3] & 0x40) != 0;
         this->x_flip = (data[3] & 0x20) != 0;
         this->palette = (data[3] & 0x10) != 0;
-        this->bank_1 = (data[3] & 0x8) != 0;
+        this->cgb_bank_1 = (data[3] & 0x8) != 0;
     };
 };
 class Ppu{

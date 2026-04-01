@@ -1364,21 +1364,24 @@ void Cpu::set_IE(u16 value){
 void Cpu::set_IF(u16 value){
     this->mem[0xFF0F] = static_cast<u8>(value);
 }
-void Cpu::check_interrupts(){ //Checks if there are any interrupts to handle. If there are, it handles them
-    if (this->IME){
+bool Cpu::check_interrupts(){ //Checks if there are any interrupts to handle. If there are, it handles them
+    if (this->IME || this->state == HALTED){
         Int_Info ints = this->get_INTs();
         for (int i = 0; i < 5; i++){
             if (ints.INT & (1 << i)){
-                this->IME = false;
                 this->state = RUNNING;
-                ints.IF &= ~(1 << i);
-                this->set_IF(ints.IF);
                 run_ticks(1);
-                this->JP((Instr_args){"RST", 0, (Operand){Addr_mode::IMPL, NO_REG, int_addrs[i]}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 1});
-                break;
+                if (this->IME){
+                    ints.IF &= ~(1 << i);
+                    this->set_IF(ints.IF);
+                    this->IME = false;
+                    this->JP((Instr_args){"RST", 0, (Operand){Addr_mode::IMPL, NO_REG, int_addrs[i]}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 1});
+                    return true;
+                }
             }
         }
     }
+    return false;
 }
 bool Cpu::step(){
     //auto start_time = std::chrono::high_resolution_clock::now();

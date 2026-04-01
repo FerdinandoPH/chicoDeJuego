@@ -57,7 +57,9 @@ void cpu_run(void* thread_args){
     std::chrono::duration<double, std::micro> elapsed = dbg.get_chrono();
     //FILE* log_pc = fopen("chicoDeJuego.emulog", "wb");
     while(cpu->state != QUIT){
-        cpu->check_interrupts();
+        if(cpu->check_interrupts() && (dbg.dbg_level == FULL_DBG || dbg.dbg_level == PRINT_DBG)){
+            printf("%s interrupt triggered\n",interrupt_names[cpu->regs[PC]].c_str());
+        }
         if(cpu->state == PAUSED){
             delay(10);
             continue;

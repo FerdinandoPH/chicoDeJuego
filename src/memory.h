@@ -4,7 +4,7 @@
 #include <mutex>
 #include <dma.h>
 #include <unordered_set>
-#define DMA_DIR 0xFF46
+#define DMA_ADDR 0xFF46
 #define DIV 0xFF04
 class Memory {
 

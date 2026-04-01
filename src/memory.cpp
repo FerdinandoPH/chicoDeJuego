@@ -16,7 +16,7 @@ Memory::~Memory() {
 /*When reading/writing to memory from CPU, sometimes some side effects will occur
  *readX and writeX will ignore these side effects*/
 void Memory::write(u16 address, u8 data, bool from_cpu) {
-    std::lock_guard<std::mutex> lock(this->mem_mutex);
+    std::scoped_lock<std::mutex> lock(this->mem_mutex);
     bool writable = true;
     from_cpu = from_cpu && this->is_protected;
     if (from_cpu){
@@ -43,7 +43,7 @@ void Memory::write(u16 address, u8 data, bool from_cpu) {
         if (write_zero.find(address) != write_zero.end()){
             data = 0;
         }
-        else if (address == DMA_DIR){
+        else if (address == DMA_ADDR){
             if (data > 0xDF){
                 std::cout<<"Invalid DMA source address: "<<numToHexString(data, 2)<<std::endl;
                 data = 0xDF;
@@ -57,7 +57,7 @@ void Memory::write(u16 address, u8 data, bool from_cpu) {
 }
 
 u8 Memory::read(u16 address, bool from_cpu) {
-    std::lock_guard<std::mutex> lock(this->mem_mutex);
+    std::scoped_lock<std::mutex> lock(this->mem_mutex);
     from_cpu = from_cpu && this->is_protected;
     if(from_cpu){
         if(dma->transferring && !BETWEEN(address, 0xFE00, 0xFE9F)){
@@ -89,7 +89,7 @@ void Memory::writeX(u16 address, u16 data) {
 
 
 bool Memory::load_rom(const char* filename) { //Loads the rom to the file (deletes previous rom)
-    std::lock_guard<std::mutex> lock(this->mem_mutex);
+    std::scoped_lock<std::mutex> lock(this->mem_mutex);
     FILE* file = fopen(filename, "rb");
     if (file) {
         fseek(file, 0, SEEK_END);
@@ -111,7 +111,7 @@ bool Memory::load_rom(const char* filename) { //Loads the rom to the file (delet
 }
 
 void Memory::dump() { //Writes the current state of memory into a file and opens it with a HEX editor
-    std::lock_guard<std::mutex> lock(this->mem_mutex);
+    std::scoped_lock<std::mutex> lock(this->mem_mutex);
     FILE* file = fopen("mem.hexd", "wb");
     if (file) {
         size_t writtenData = fwrite(_mem, 1, 0x10000, file);
@@ -129,7 +129,7 @@ void Memory::dump() { //Writes the current state of memory into a file and opens
 }
 
 void Memory::reset(){
-    std::lock_guard<std::mutex> lock(this->mem_mutex);
+    std::scoped_lock<std::mutex> lock(this->mem_mutex);
     memset(_mem, 0, sizeof(_mem));
     if (_rom != NULL)
         memcpy(_mem, _rom, 0x8000);

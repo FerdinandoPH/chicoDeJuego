@@ -251,7 +251,7 @@ class Cpu{
         Int_Info get_INTs();
         void set_IE(u16 value);
         void set_IF(u16 value);
-        void check_interrupts();
+        bool check_interrupts();
         
 
         std::string toString();

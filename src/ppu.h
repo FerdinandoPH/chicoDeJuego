@@ -31,18 +31,20 @@ struct Sprite{
     bool y_flip;
     bool x_flip;
     u8 palette;
-    bool bank_1;
-    //Other attributes are CGB exclusive
+    //The rest is CGB exclusive, not implemented yet
+    bool cgb_bank_1;
+    u8 cgb_palette_index;
     Sprite() = default;
     Sprite(u8 data[4]){
         this->y_pos = data[0];
         this->x_pos = data[1];
         this->tile_index = data[2];
-        this->priority = (data[3] & 0x80) != 0;
-        this->y_flip = (data[3] & 0x40) != 0;
-        this->x_flip = (data[3] & 0x20) != 0;
-        this->palette = (data[3] & 0x10) != 0;
-        this->bank_1 = (data[3] & 0x8) != 0;
+        this->priority = (data[3] & 0x80);
+        this->y_flip = (data[3] & 0x40);
+        this->x_flip = (data[3] & 0x20);
+        this->palette = (data[3] & 0x10);
+        this->cgb_bank_1 = (data[3] & 0x8);
+        this->cgb_palette_index = (data[3] & 0x7);
     };
 };
 typedef struct{
