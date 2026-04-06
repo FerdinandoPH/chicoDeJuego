@@ -1,0 +1,45 @@
+#pragma once
+
+#define P1_ADDR 0xFF00
+#define SB_ADDR 0xFF01
+#define SC_ADDR 0xFF02
+#define DIV_ADDR 0xFF04
+#define TIMA_ADDR 0xFF05
+#define TMA_ADDR 0xFF06
+#define TAC_ADDR 0xFF07
+#define IF_ADDR 0xFF0F
+#define NR10_ADDR 0xFF10
+#define NR11_ADDR 0xFF11
+#define NR12_ADDR 0xFF12
+#define NR13_ADDR 0xFF13
+#define NR14_ADDR 0xFF14
+#define NR21_ADDR 0xFF16
+#define NR22_ADDR 0xFF17
+#define NR23_ADDR 0xFF18
+#define NR24_ADDR 0xFF19
+#define NR30_ADDR 0xFF1A
+#define NR31_ADDR 0xFF1B
+#define NR32_ADDR 0xFF1C
+#define NR33_ADDR 0xFF1D
+#define NR34_ADDR 0xFF1E
+#define NR41_ADDR 0xFF20
+#define NR42_ADDR 0xFF21
+#define NR43_ADDR 0xFF22
+#define NR44_ADDR 0xFF23
+#define NR50_ADDR 0xFF24
+#define NR51_ADDR 0xFF25
+#define NR52_ADDR 0xFF26
+#define LCDC_ADDR 0xFF40
+#define LCD_STAT_ADDR 0xFF41
+#define SCY_ADDR 0xFF42
+#define SCX_ADDR 0xFF43
+#define LY_ADDR 0xFF44
+#define LYC_ADDR 0xFF45
+#define DMA_ADDR 0xFF46
+#define BGP_ADDR 0xFF47
+#define OBP0_ADDR 0xFF48
+#define OBP1_ADDR 0xFF49
+#define WY_ADDR 0xFF4A
+#define WX_ADDR 0xFF4B
+
+#define IE_ADDR 0xFFFF

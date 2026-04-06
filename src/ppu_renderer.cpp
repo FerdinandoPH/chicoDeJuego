@@ -16,6 +16,7 @@ void Pixel_Fetcher::set_f_win_ly(u8 new_value){
     this->f_win_ly = new_value;
 }
 void Pixel_Fetcher::new_line(){
+    //Also call after new_frame
     f_ly++;
     //win ly is set by FIFO
     f_lx = f_win_lx = 0;
@@ -158,6 +159,7 @@ void Pixel_FIFO::new_frame(){
     this->increase_win_ly = false;
 }
 void Pixel_FIFO::new_line(){
+    //Also call after new_frame
     this->lx = 0;
     this->ly++;
     this->waiting_for_sprite = false;

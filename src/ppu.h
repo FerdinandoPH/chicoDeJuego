@@ -5,17 +5,7 @@
 #include <ui.h>
 #include <unordered_map>
 #include <deque>
-#define LY_ADDR 0xFF44
-#define LCD_STAT_ADDR 0xFF41
-#define LCDC_ADDR 0xFF40
-#define LYC_ADDR 0xFF45
-#define SCX_ADDR 0xFF43
-#define SCY_ADDR 0xFF42
-#define WX_ADDR 0xFF4B
-#define WY_ADDR 0xFF4A
-#define BGP_ADDR 0xFF47
-#define OBP0_ADDR 0xFF48
-#define OBP1_ADDR 0xFF49
+
 
 enum class Ppu_mode{OAM, TRANSFER, VBLANK, HBLANK};
 extern std::unordered_map<Ppu_mode, std::string> ppu_mode_names;
@@ -121,6 +111,10 @@ class Pixel_FIFO{
         bool is_main_fifo_empty();
 };
 
+typedef struct{
+    u8 lcdc, stat, scy, scx, ly, lyc;
+}Ppu_trace;
+
 class Ppu{
     private:
         Memory& mem;
@@ -131,10 +125,12 @@ class Ppu{
         bool is_on = true;
         Ppu_mode ppu_mode;
         int line_ticks = 0;
+        bool startup = true;
         void inc_ly();
         void change_mode(Ppu_mode mode);
         void load_oam();
         void load_line_oam();
+        void check_lyc_at_restart();
     public:
         Sprite oam[40];
         Sprite line_oam[10];
@@ -142,5 +138,7 @@ class Ppu{
         u32* video_buffer = new u32[XRES * YRES];
         Ppu(Memory& mem, Ui* ui, int scale = 4);
         void tick();
+        void reset();
         std::string toString();
+        Ppu_trace get_trace();
 };

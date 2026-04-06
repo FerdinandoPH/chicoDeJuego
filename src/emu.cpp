@@ -50,6 +50,7 @@ void emu_reset(std::binary_semaphore* sem = nullptr){
     memory->reset();
     cpu->reset();
     timer->reset();
+    ppu->reset();
     dbg.reset();
 }
 void cpu_run(void* thread_args){
@@ -64,7 +65,9 @@ void cpu_run(void* thread_args){
             delay(10);
             continue;
         }
-        
+        #ifdef TRACEGEN
+        dbg.generate_trace();
+        #endif
         if(dbg.dbg_level != NO_DBG){
             
             dbg.check_breakpoints();
@@ -168,6 +171,10 @@ int emu_run(int argc, char** argv){
         return 1;
     }
     printf("ROM loaded: %s\n\n", memory->rom_header->title);
+    cpu->adjust_flag_from_checksum();
+    #ifdef TRACEGEN
+    dbg.generate_trace_header();
+    #endif
     SDL_Init(SDL_INIT_VIDEO);
     TTF_Init();
     std::binary_semaphore sem = std::binary_semaphore(0);

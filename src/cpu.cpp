@@ -1333,6 +1333,12 @@ Cpu::Cpu(Memory& memory): mem(memory){
     this->reset();
 }
 
+#ifdef LOGGER
+Cpu::~Cpu(){
+    fclose(this->log);
+}
+#endif
+
 void Cpu::reset(){ //Sets states and registers to initial values
     this->state = RUNNING;
     this->IME_pending = 0;
@@ -1350,6 +1356,9 @@ void Cpu::reset(){ //Sets states and registers to initial values
     this->regs[E] = 0xD8;
     this->regs[H] = 0x01;
     this->regs[L] = 0x4D;
+    #ifdef LOGGER
+    this->log = fopen("cdj.emulog", "wb");
+    #endif
 }
 Int_Info Cpu::get_INTs(){ //Provides info about IE and IF in a more programmer-friendly way
     Int_Info info;
@@ -1385,6 +1394,13 @@ bool Cpu::check_interrupts(){ //Checks if there are any interrupts to handle. If
 }
 bool Cpu::step(){
     //auto start_time = std::chrono::high_resolution_clock::now();
+    #ifdef LOGGER
+    if(this->regs[PC] != prev_pc){
+        u16 curr_pc = this->regs[PC];
+        fwrite(&curr_pc, sizeof(curr_pc), 1, this->log);
+        prev_pc = curr_pc;
+    }
+    #endif
     if(this->state == RUNNING){
         Instr curr_instr;
         this->opcode = this->mem[this->regs[PC]]; //Fetches the opcode
@@ -1979,4 +1995,30 @@ void Cpu::JP(Instr_args args){
             run_ticks(1);
         this->regs[PC] = args.dest.value;
     }
+}
+
+void Cpu::adjust_flag_from_checksum(){
+    Cart_header header = this->mem.get_cart_header();
+    if(header.header_checksum != 0){
+        this->regs.set_flag(Flag::C, true);
+        this->regs.set_flag(Flag::H, true);
+    }
+}
+
+Cpu_trace Cpu::get_trace(){
+    Cpu_trace trace;
+    trace.pc = this->regs[PC];
+    trace.sp = this->regs[SP];
+    trace.a = this->regs[A];
+    trace.f = this->regs[F];
+    trace.b = this->regs[B];
+    trace.c = this->regs[C];
+    trace.d = this->regs[D];
+    trace.e = this->regs[E];
+    trace.h = this->regs[H];
+    trace.l = this->regs[L];
+    trace.IF = this->mem[0xFF0F];
+    trace.IE = this->mem[0xFFFF];
+    trace.IME = this->IME;
+    return trace;
 }

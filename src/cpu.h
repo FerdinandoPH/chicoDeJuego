@@ -194,6 +194,13 @@ typedef struct{
     u8 IF;
     u8 INT;
 } Int_Info; //Struct that represents the state of the interrupt system and allows easy access to the IE, IF and INT registers
+typedef struct{
+    u16 pc;
+    u16 sp;
+    u8 a, f, b, c, d, e, h, l;
+    u8 IF,IE;
+    bool IME;
+}Cpu_trace;
 class Cpu{
     private:
         Memory& mem;
@@ -209,6 +216,10 @@ class Cpu{
         //static std::map<u8, Instr> instr_map_prefix;
         static Instr instr_table_prefix[0x100];
         u16 int_addrs[5] = {0x40, 0x48, 0x50, 0x58, 0x60};
+        #ifdef LOGGER
+        FILE* log;
+        u16 prev_pc = 0xFFFF;
+        #endif
         #pragma region All_instructions
             void noImpl(Instr_args args);
             void X_X(Instr_args args);
@@ -247,15 +258,19 @@ class Cpu{
         u16* dest;
         Reg_dict regs;
         Cpu(Memory& mem);
+        #ifdef LOGGER
+        ~Cpu();
+        #endif
         bool step();
         Int_Info get_INTs();
         void set_IE(u16 value);
         void set_IF(u16 value);
         bool check_interrupts();
-        
+        void adjust_flag_from_checksum();
 
         std::string toString();
         
         void reset();
+        Cpu_trace get_trace();
 };
 

@@ -7,6 +7,7 @@
 #include <vector>
 #include <unordered_map>
 #include <chrono>
+//#define TRACEGEN
 typedef enum {NO_DBG, OFF_DBG, PRINT_DBG, FULL_DBG} Debug_mode;
 enum class Dbg_cond{EQ, NEQ, GT, LT, GTE, LTE, BET};
 enum class Breakpoint_type{POS, OPCODE, MEM, REG};
@@ -39,9 +40,13 @@ class Debugger{
         std::vector<Mem_breakpoint> mem_breakpoints;
         std::vector<Reg_breakpoint> reg_breakpoints;
         std::chrono::time_point<std::chrono::system_clock> last_time;
+        #ifdef TRACEGEN
+        FILE* trace_file;
+        #endif
         static bool check_dbg_cond(Dbg_cond cond, u16 val1, u16 val2, u16 val3);
     public:
         Debug_mode dbg_level;
+        std::vector<u16> last_pc_values;
         Debugger(int& ticks, Memory& mem, Cpu& cpu, Timer& timer, Ppu& ppu);
         void debug_print();
         bool check_breakpoints();
@@ -59,7 +64,11 @@ class Debugger{
         bool del_breakpoint(Breakpoint_type br_type, size_t index);
         void clear_breakpoints();
         std::string breakpoints_toString();
-        std::vector<u16> last_pc_values;
+        #ifdef TRACEGEN
+        ~Debugger();
+        void generate_trace_header();
+        void generate_trace();
+        #endif
 };
 
 

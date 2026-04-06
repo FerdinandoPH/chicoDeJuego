@@ -10,6 +10,7 @@ Ppu::Ppu(Memory& mem, Ui* ui, int scale) : mem(mem), ui(ui), scale(scale) {
     this->fifo = new Pixel_FIFO(mem, ui, this->line_oam, this->sprites_in_line, this->fetcher);
     this->fetcher->set_fifo(this->fifo);
     this->ppu_mode = Ppu_mode::VBLANK;
+    reset();
 }
 
 void Ppu::tick(){
@@ -25,7 +26,9 @@ void Ppu::tick(){
         return;
     }
     if(!is_on){
-        this->mem.writeX(LY_ADDR, (u8)144);
+        this->mem.writeX(LY_ADDR, (u8)0);
+        this->change_mode(Ppu_mode::OAM);
+        check_lyc_at_restart();
         is_on = true;
     }
     this->line_ticks++;
@@ -34,7 +37,6 @@ void Ppu::tick(){
             if (this->line_ticks >= 80){
                 this->load_oam();
                 this->load_line_oam();
-
                 this->change_mode(Ppu_mode::TRANSFER);
             }
             break;
@@ -50,15 +52,9 @@ void Ppu::tick(){
                 this->inc_ly();
                 if(this->mem.readX(LY_ADDR) >= 144){
                     this->change_mode(Ppu_mode::VBLANK);
-                    this->mem.writeX(0xFF0F, (u8)(this->mem.readX(0xFF0F) | 0x1)); //Vblank IF
-                    if(this->mem.readX(LCD_STAT_ADDR) & 0x10){ //If stat's Vblank interrupt is enabled
-                        this->mem.writeX(0xFF0F, (u8)(this->mem.readX(0xFF0F) | 0x2));
-                    }
                 }
                 else{
                     this->change_mode(Ppu_mode::OAM);
-                    this->fetcher->new_line();
-                    this->fifo->new_line();
                 }
                 this->line_ticks = 0;
             }
@@ -67,13 +63,13 @@ void Ppu::tick(){
             if (this->line_ticks >= 456){
                 this->line_ticks = 0;
                 this->inc_ly();
-                if(this->mem.readX(LY_ADDR) >= 154){
+                if(this->mem.readX(LY_ADDR) >= 154 || this->startup){
+                    if(this->startup){
+                        this->startup = false;
+                        check_lyc_at_restart();
+                    }
                     this->mem.writeX(LY_ADDR, (u8)0);
                     this->change_mode(Ppu_mode::OAM);
-                    this->fetcher->new_frame();
-                    this->fifo->new_frame();
-                    this->fetcher->new_line();
-                    this->fifo->new_line();
                 }
             }
             break;
@@ -109,7 +105,7 @@ void Ppu::inc_ly(){
     ly++;
     u8 lcd_stat = this->mem.readX(LCD_STAT_ADDR);
     this->mem.writeX(LY_ADDR, ly);
-    if (ly == this->mem.readX(LYC_ADDR)){
+    if ((ly <= 153? ly : 0) == this->mem.readX(LYC_ADDR)){
         lcd_stat |= 4;
         if (lcd_stat & 0x40){
             trigger_int = true;
@@ -120,10 +116,11 @@ void Ppu::inc_ly(){
     }
     this->mem.writeX(LCD_STAT_ADDR, lcd_stat);
     if (trigger_int){
-        this->mem.writeX(0xFF0F, (u8)(this->mem.readX(0xFF0F) | 0x2)); //Stat IF
+        this->mem.writeX(IF_ADDR, (u8)(this->mem.readX(IF_ADDR) | 0x2)); //Stat IF
     }
 }
 void Ppu::change_mode(Ppu_mode mode){
+    Ppu_mode old_mode = this->ppu_mode;
     this->ppu_mode = mode;
     u8 lcd_stat = this->mem.readX(LCD_STAT_ADDR);
     lcd_stat &= 0b11111100;
@@ -131,6 +128,12 @@ void Ppu::change_mode(Ppu_mode mode){
         case Ppu_mode::OAM:
             lcd_stat |= 2;
             mem.set_oam_lock(true);
+            if (old_mode != Ppu_mode::HBLANK){
+                this->fetcher->new_frame();
+                this->fifo->new_frame();
+            }
+            this->fetcher->new_line();
+            this->fifo->new_line();
             break;
         case Ppu_mode::TRANSFER:
             mem.set_vram_lock(true);
@@ -145,9 +148,28 @@ void Ppu::change_mode(Ppu_mode mode){
             mem.set_vram_lock(false);
             mem.set_oam_lock(false);
             lcd_stat |= 1;
+            this->mem.writeX(0xFF0F, (u8)(this->mem.readX(0xFF0F) | 0x1)); //Vblank IF
+            if(this->mem.readX(LCD_STAT_ADDR) & 0x10){ //If stat's Vblank interrupt is enabled
+                this->mem.writeX(0xFF0F, (u8)(this->mem.readX(0xFF0F) | 0x2));
+            }
             break;
     }
     this->mem.writeX(LCD_STAT_ADDR, lcd_stat);
+}
+
+void Ppu::reset(){
+    this->startup = true;
+    this->ppu_mode = Ppu_mode::VBLANK;
+    this->line_ticks = 456 - 64;
+}
+
+void Ppu::check_lyc_at_restart(){
+    if (this->mem.readX(LYC_ADDR) == 0){
+        this->mem.writeX(LCD_STAT_ADDR, (u8)(this->mem.readX(LCD_STAT_ADDR) | 0b100));
+        if (this->mem.readX(LCD_STAT_ADDR) & 0x40){
+            this->mem.writeX(IF_ADDR, (u8)(this->mem.readX(IF_ADDR) | 0x2));
+        }
+    }
 }
 
 std::string Ppu::toString(){
@@ -159,4 +181,15 @@ std::string Ppu::toString(){
     str += "SCX: "+std::to_string((int)this->mem.readX(SCX_ADDR))+" ";
     str += "SCY: "+std::to_string((int)this->mem.readX(SCY_ADDR))+" ";
     return str;
+}
+
+Ppu_trace Ppu::get_trace(){
+    Ppu_trace trace;
+    trace.lcdc = this->mem.readX(LCDC_ADDR);
+    trace.stat = this->mem.readX(LCD_STAT_ADDR);
+    trace.scy = this->mem.readX(SCY_ADDR);
+    trace.scx = this->mem.readX(SCX_ADDR);
+    trace.ly = this->mem.readX(LY_ADDR);
+    trace.lyc = this->mem.readX(LYC_ADDR);
+    return trace;
 }

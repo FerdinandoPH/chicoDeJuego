@@ -15,6 +15,17 @@ Debugger::Debugger(int& ticks, Memory& mem, Cpu& cpu, Timer& timer, Ppu& ppu) : 
     this->start_chrono();
     this->last_pc_values = std::vector<u16>(10, 0x100);
 }
+#ifdef TRACEGEN
+void Debugger::generate_trace_header(){
+    this->trace_file = fopen("chicoDeJuego.jsonl", "w");
+    fprintf(this->trace_file, "{\"_header\":true,\"format_version\":\"0.1.0\",\"emulator\":\"chicoDeJuego\",\"emulator_version\":\"0.1\",\"rom_sha256\":\"%s\",\"model\":\"DMG-B\",\"boot_rom\":\"skip\",\"profile\":\"blargg\",\"fields\":[\"pc\",\"sp\",\"a\",\"f\",\"b\",\"c\",\"d\",\"e\",\"h\",\"l\",\"lcdc\",\"stat\",\"ly\",\"lyc\",\"scy\",\"scx\",\"if_\",\"ie\",\"ime\",\"div\",\"tima\",\"tma\",\"tac\"],\"trigger\":\"instruction\"}", this->mem.get_sha256().c_str());
+}
+Debugger::~Debugger(){
+    if (this->trace_file != nullptr){
+        fclose(this->trace_file);
+    }
+}
+#endif
 
 
 void Debugger::debug_print(){
@@ -360,3 +371,25 @@ std::chrono::duration<double, std::micro> Debugger::get_chrono(){
         std::chrono::high_resolution_clock::now() - this->last_time
     );
 }
+
+#ifdef TRACEGEN
+void Debugger::generate_trace(){
+    Cpu_trace cpu_trace = this->cpu.get_trace();
+    Timer_trace timer_trace = this->timer.get_trace();
+    Ppu_trace ppu_trace = this->ppu.get_trace();
+    // fprintf(this->trace_file, "\n{\"pc\":\"%u\",\"sp\":\"%u\",\"a\":\"%u\",\"f\":\"%u\",\"b\":\"%u\",\"c\":\"%u\",\"d\":\"%u\",\"e\":\"%u\",\"h\":\"%u\",\"l\":\"%u\",\"lcdc\":\"%u\",\"stat\":\"%u\",\"ly\":\"%u\",\"lyc\":\"%u\",\"scy\":\"%u\",\"scx\":\"%u\",\"if_\":\"%u\",\"ie\":\"%u\",\"ime\":%s,\"div\":\"%u\",\"tima\":\"%u\",\"tma\":\"%u\",\"tac\":\"%u\"}",
+    //     cpu_trace.pc, cpu_trace.sp, cpu_trace.a, cpu_trace.f, cpu_trace.b, cpu_trace.c, cpu_trace.d, cpu_trace.e, cpu_trace.h, cpu_trace.l,
+    //     ppu_trace.lcdc, ppu_trace.stat, ppu_trace.ly, ppu_trace.lyc, ppu_trace.scy, ppu_trace.scx,
+    //     cpu_trace.IF, cpu_trace.IE, cpu_trace.IME ? "true" : "false",
+    //     timer_trace.div, timer_trace.tima, timer_trace.tma, timer_trace.tac
+    // );
+    fprintf(
+        this->trace_file,
+        "\n{\"pc\":\"%04X\",\"sp\":\"%04X\",\"a\":\"%02X\",\"f\":\"%02X\",\"b\":\"%02X\",\"c\":\"%02X\",\"d\":\"%02X\",\"e\":\"%02X\",\"h\":\"%02X\",\"l\":\"%02X\",\"lcdc\":\"%02X\",\"stat\":\"%02X\",\"ly\":\"%02X\",\"lyc\":\"%02X\",\"scy\":\"%02X\",\"scx\":\"%02X\",\"if_\":\"%02X\",\"ie\":\"%02X\",\"ime\":%s,\"div\":\"%04X\",\"tima\":\"%02X\",\"tma\":\"%02X\",\"tac\":\"%02X\"}",
+        cpu_trace.pc, cpu_trace.sp, cpu_trace.a, cpu_trace.f, cpu_trace.b, cpu_trace.c, cpu_trace.d, cpu_trace.e, cpu_trace.h, cpu_trace.l,
+        ppu_trace.lcdc, ppu_trace.stat, ppu_trace.ly, ppu_trace.lyc, ppu_trace.scy, ppu_trace.scx,
+        cpu_trace.IF, cpu_trace.IE, cpu_trace.IME ? "true" : "false",
+        timer_trace.div, timer_trace.tima, timer_trace.tma, timer_trace.tac
+    );
+}
+#endif

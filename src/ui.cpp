@@ -33,7 +33,7 @@ void Ui::handle_events(){
                 SDL_DestroyTexture(this->main_texture);
                 delete[] this->video_buffer;
                 SDL_Quit();
-                exit(0);
+                //exit(0);
                 break;
             case SDL_WINDOWEVENT:
                 if (event.window.event == SDL_WINDOWEVENT_CLOSE){
