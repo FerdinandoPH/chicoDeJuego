@@ -1,7 +1,7 @@
 #include <controller.h>
 #include <memory.h>
 
-Controller::Controller(Memory& mem) : mem(mem) {
+Controller::Controller(Memory& mem) : mem(mem), event_queue(), event_queue_mutex() {
     this->define_keys();
     this->reset();
 }
@@ -35,16 +35,39 @@ u8 Controller::joyp_change(u8 data){
     switch(new_poll_mode){
         case 1:
             this->poll_mode = Poll_mode::DIRECTION;
-            return (data & 0xF0) | (this->keys_state & 0x0F);
+            return ((data | 0xC0) & 0xF0) | (this->keys_state & 0x0F);
             break;
         case 2:
             this->poll_mode = Poll_mode::BUTTON;
-            return (data & 0xF0) | ((this->keys_state & 0xF0) >> 4);
+            return ((data | 0xC0) & 0xF0) | ((this->keys_state & 0xF0) >> 4);
             break;
         default:
             this->poll_mode = Poll_mode::NONE;
-            return data | 0x0F;
+            return data | 0xCF;
             break;
+    }
+}
+
+void Controller::enqueue_event(SDL_Scancode key, Controller_event_type type){
+    std::scoped_lock lock(this->event_queue_mutex);
+    this->event_queue.push_back({type, key});
+}
+
+void Controller::process_events(){
+    
+    std::deque<Input_event> events_to_process;
+    {
+        std::scoped_lock lock(this->event_queue_mutex);
+        if(this->event_queue.empty()) return;
+        events_to_process.swap(this->event_queue);
+    }
+    for (const auto& event : events_to_process){
+        if (event.type == Controller_event_type::KEY_DOWN){
+            this->key_down(event.sdl_key);
+        }
+        else{
+            this->key_up(event.sdl_key);
+        }
     }
 }
 
@@ -54,7 +77,7 @@ void Controller::key_down(SDL_Scancode sdl_key){
         Poll_mode key_pm = this->key_to_poll_mode[key];
         keys_state &= ~(1 << (this->key_to_bit[key] + (key_pm == Poll_mode::BUTTON ? 4 : 0)));
         if (this->poll_mode == key_pm){
-            u8 new_value = (key_pm == Poll_mode::BUTTON ? 0b11010000 : 0b11100000);
+            u8 new_value = mem.readX(JOYP_ADDR) & 0xF0;
             if (key_pm == Poll_mode::BUTTON){
                 new_value |= ((keys_state & 0xF0) >> 4);
             }
@@ -73,7 +96,7 @@ void Controller::key_up(SDL_Scancode sdl_key){
         Poll_mode key_pm = this->key_to_poll_mode[key];
         keys_state |= 1 << (this->key_to_bit[key] + (key_pm == Poll_mode::BUTTON ? 4 : 0));
         if (this->poll_mode == key_pm){
-            u8 new_value = (key_pm == Poll_mode::BUTTON ? 0b11010000 : 0b11100000);
+            u8 new_value = mem.readX(JOYP_ADDR) & 0xF0;
             if (key_pm == Poll_mode::BUTTON){
                 new_value |= ((keys_state & 0xF0) >> 4);
             }

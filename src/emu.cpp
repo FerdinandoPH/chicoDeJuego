@@ -60,7 +60,7 @@ void emu_reset(std::binary_semaphore* sem = nullptr){
 }
 void cpu_run(void* thread_args){
     std::binary_semaphore* sem = ((Cpu_thread_args*)thread_args)->sem;
-    std::chrono::duration<double, std::micro> elapsed = dbg.get_chrono();
+    //std::chrono::duration<double, std::micro> elapsed = dbg.get_chrono();
     //FILE* log_pc = fopen("chicoDeJuego.emulog", "wb");
     while(cpu->state != QUIT){
         if(cpu->check_interrupts() && (dbg.dbg_level == FULL_DBG || dbg.dbg_level == PRINT_DBG)){
@@ -79,7 +79,7 @@ void cpu_run(void* thread_args){
             
             if(dbg.dbg_level == PRINT_DBG || dbg.dbg_level == FULL_DBG){
                 
-                std::cout<<"Elapsed time: "<<elapsed.count()<<"us"<<std::endl;
+                //std::cout<<"Elapsed time: "<<elapsed.count()<<"us"<<std::endl;
                 dbg.debug_print();
                 if(dbg.dbg_level == FULL_DBG){
                     bool exit = false;
@@ -158,10 +158,10 @@ void cpu_run(void* thread_args){
                 }
             }
         }
-        dbg.start_chrono();
+        //dbg.start_chrono();
         cpu->step();
-        
-        elapsed = dbg.get_chrono();
+        controller->process_events();
+        //elapsed = dbg.get_chrono();
 
     }
     //fclose(log_pc);

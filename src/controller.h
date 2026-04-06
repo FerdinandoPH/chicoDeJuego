@@ -3,10 +3,16 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <mutex>
+#include <deque>
 #include <SDL2/SDL.h>
 class Memory;
 enum class Key{UP, DOWN, LEFT, RIGHT, A, B, START, SELECT};
 enum class Poll_mode{DIRECTION, BUTTON, NONE};
+enum class Controller_event_type{KEY_DOWN, KEY_UP};
+typedef struct{
+    Controller_event_type type;
+    SDL_Scancode sdl_key;
+} Input_event;
 class Controller {
     private:
         Memory& mem;
@@ -22,11 +28,15 @@ class Controller {
             {Key::RIGHT, Poll_mode::DIRECTION}, {Key::LEFT, Poll_mode::DIRECTION}, {Key::UP, Poll_mode::DIRECTION}, {Key::DOWN, Poll_mode::DIRECTION},
             {Key::A, Poll_mode::BUTTON}, {Key::B, Poll_mode::BUTTON}, {Key::SELECT, Poll_mode::BUTTON}, {Key::START, Poll_mode::BUTTON}
         };
+        std::deque<Input_event> event_queue;
+        std::mutex event_queue_mutex;
         void define_keys();
+        void key_down(SDL_Scancode key);
+        void key_up(SDL_Scancode key);
     public:
         Controller(Memory& mem);
         void reset();
         u8 joyp_change(u8 data);
-        void key_down(SDL_Scancode key);
-        void key_up(SDL_Scancode key);
+        void enqueue_event(SDL_Scancode key, Controller_event_type type);
+        void process_events();
 };

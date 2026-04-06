@@ -65,7 +65,7 @@ void Ui::handle_events(){
                     default:
                         if (!event.key.repeat){
                             //printf("Key down: %s\n", SDL_GetScancodeName(event.key.keysym.scancode));
-                            this->controller.key_down(event.key.keysym.scancode);
+                            this->controller.enqueue_event(event.key.keysym.scancode, Controller_event_type::KEY_DOWN);
                         }
 
                         break;
@@ -74,7 +74,7 @@ void Ui::handle_events(){
             case SDL_KEYUP:
                 if (!event.key.repeat){
                     //printf("Key up: %s\n", SDL_GetScancodeName(event.key.keysym.scancode));
-                    this->controller.key_up(event.key.keysym.scancode);
+                    this->controller.enqueue_event(event.key.keysym.scancode, Controller_event_type::KEY_UP);
                 }
                 break;
             default:
