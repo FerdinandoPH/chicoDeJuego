@@ -74,6 +74,9 @@ void Memory::write(u16 address, u8 data, bool from_cpu) {
             this->dma->start(static_cast<u16>(data)*0x100, 0xFE00, 0xA0);
         }
         switch(address){
+            case JOYP_ADDR:
+                data = controller->joyp_change(data);
+                break;
             case TAC_ADDR:
                 data |= 0xF8;
                 break;
@@ -181,7 +184,7 @@ void Memory::reset(){
 
 void Memory::load_initial_values(){
     // Power-up values for DMG/MGB from Pan Docs (PC = 0x0100)
-    _mem[P1_ADDR] = 0xCF;
+    _mem[JOYP_ADDR] = 0xCF;
     _mem[SB_ADDR] = 0x00;
     _mem[SC_ADDR] = 0x7E;
     _mem[DIV_ADDR] = 0xAB;
@@ -227,6 +230,9 @@ void Memory::load_initial_values(){
 }
 void Memory::set_dma(Dma* dma){
     this->dma = dma;
+}
+void Memory::set_controller(Controller* controller){
+    this->controller = controller;
 }
 void Memory::set_vram_lock(bool locked){
     this->vram_locked = locked;

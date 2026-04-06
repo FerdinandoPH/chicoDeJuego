@@ -10,8 +10,8 @@ std::unordered_map<Dbg_cond, std::string> dbg_cond_names = {
 std::unordered_map<u16, std::string> interrupt_names = {
     {0x40, "V-Blank"}, {0x48, "LCD STAT"}, {0x50, "Timer"}, {0x58, "Serial"}, {0x60, "Joypad"}
 };
-Debugger::Debugger(int& ticks, Memory& mem, Cpu& cpu, Timer& timer, Ppu& ppu) : ticks(ticks), mem(mem), cpu(cpu), timer(timer), ppu(ppu){
-    this->dbg_level = FULL_DBG;
+Debugger::Debugger(Debug_mode initial_dbg_level, int& ticks, Memory& mem, Cpu& cpu, Timer& timer, Ppu& ppu) : ticks(ticks), mem(mem), cpu(cpu), timer(timer), ppu(ppu){
+    this->dbg_level = initial_dbg_level;
     this->start_chrono();
     this->last_pc_values = std::vector<u16>(10, 0x100);
 }

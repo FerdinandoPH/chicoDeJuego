@@ -8,22 +8,26 @@
 #include <ui.h>
 #include <ppu.h>
 #include <dma.h>
+#include <controller.h>
 #include <pthread.h>
 #include <iostream>
 #include <csignal>
 #include <mutex>
 #include <chrono>
 
+Debug_mode initial_dbg_mode = NO_DBG;
+
 Memory* memory = new Memory();
+Controller* controller = new Controller(*memory);
 Dma* dma = new Dma(memory);
 Cpu* cpu = new Cpu(*memory);
 Timer* timer = new Timer(*cpu, *memory);
 int ticks = 0;
 bool resetting = false;
-Ui* ui = new Ui(*memory, 4);
+Ui* ui = new Ui(*memory, *controller, 4);
 Ppu* ppu = new Ppu(*memory, ui, 4);
 std::mutex ui_mutex = std::mutex();
-Debugger dbg = Debugger(ticks, *memory, *cpu, *timer, *ppu);
+Debugger dbg = Debugger(initial_dbg_mode, ticks, *memory, *cpu, *timer, *ppu);
 
 void signal_handler(int signal){
     if (signal == SIGINT){
@@ -51,6 +55,7 @@ void emu_reset(std::binary_semaphore* sem = nullptr){
     cpu->reset();
     timer->reset();
     ppu->reset();
+    controller->reset();
     dbg.reset();
 }
 void cpu_run(void* thread_args){
@@ -165,6 +170,7 @@ int emu_run(int argc, char** argv){
     std::signal(SIGINT, signal_handler);
     ui->set_debugger(&dbg);
     memory->set_dma(dma);
+    memory->set_controller(controller);
     ui->init();
     if(argc < 2 || !memory->load_rom(argv[1])){
         printf("Error loading ROM\n");

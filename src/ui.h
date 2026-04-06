@@ -3,6 +3,7 @@
 
 #include <screen_specs.h>
 #include <memory.h>
+#include <controller.h>
 #include <mutex>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
@@ -10,6 +11,7 @@ class Debugger;
 class Ui{
     private:
         Memory& mem;
+        Controller& controller;
         Debugger* dbg;
         int scale;
         SDL_Window* main_window;
@@ -28,7 +30,7 @@ class Ui{
         void handle_events();
         std::mutex video_buffer_mutex;
     public:
-        Ui(Memory& mem, int scale = 4);
+        Ui(Memory& mem, Controller& controller, int scale = 4);
         bool change_requested = false;
         void init();
         void update();

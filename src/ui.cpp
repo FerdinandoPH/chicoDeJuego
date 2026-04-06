@@ -1,15 +1,15 @@
 #include <ui.h>
 #include <debugger.h>
 
-Ui::Ui(Memory& mem, int scale) :  mem(mem), scale(scale) {
+Ui::Ui(Memory& mem, Controller& controller, int scale) :  mem(mem), controller(controller), scale(scale), video_buffer_mutex() {
 
 }
 void Ui::init(){
-    SDL_CreateWindowAndRenderer(16*8*scale, 24*8*scale, 0, &this->tile_debug_window, &this->tile_debug_renderer);
-    SDL_SetWindowTitle(this->tile_debug_window, "Tilemap Debugger");
-    this->tile_debug_surface = SDL_CreateRGBSurface(0, 16*8*scale + 16*scale, 24*8*scale + 24*scale, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
-    this->tile_debug_texture = SDL_CreateTexture(this->tile_debug_renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 16*8*scale + 16*scale, 24*8*scale + 24*scale);
-    SDL_SetWindowPosition(this->tile_debug_window, 1300, 150);
+    // SDL_CreateWindowAndRenderer(16*8*scale, 24*8*scale, 0, &this->tile_debug_window, &this->tile_debug_renderer);
+    // SDL_SetWindowTitle(this->tile_debug_window, "Tilemap Debugger");
+    // this->tile_debug_surface = SDL_CreateRGBSurface(0, 16*8*scale + 16*scale, 24*8*scale + 24*scale, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+    // this->tile_debug_texture = SDL_CreateTexture(this->tile_debug_renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 16*8*scale + 16*scale, 24*8*scale + 24*scale);
+    // SDL_SetWindowPosition(this->tile_debug_window, 1300, 150);
 
     this->video_buffer = new u32[XRES * YRES];
     SDL_CreateWindowAndRenderer(XRES*scale, YRES*scale, 0, &this->main_window, &this->main_renderer);
@@ -58,13 +58,25 @@ void Ui::handle_events(){
                 }
                 break;
             case SDL_KEYDOWN:
-                switch (event.key.keysym.sym){
-                    case SDLK_ESCAPE:
+                switch (event.key.keysym.scancode){
+                    case SDL_SCANCODE_ESCAPE:
                         this->dbg->dbg_level = FULL_DBG;
                         break;
                     default:
+                        if (!event.key.repeat){
+                            //printf("Key down: %s\n", SDL_GetScancodeName(event.key.keysym.scancode));
+                            this->controller.key_down(event.key.keysym.scancode);
+                        }
+
                         break;
                 }
+                break;
+            case SDL_KEYUP:
+                if (!event.key.repeat){
+                    //printf("Key up: %s\n", SDL_GetScancodeName(event.key.keysym.scancode));
+                    this->controller.key_up(event.key.keysym.scancode);
+                }
+                break;
             default:
                 break;
         }
@@ -75,17 +87,17 @@ void Ui::update() {
         this->screens_on = !this->screens_on;
         this->change_requested = false;
         if (this->screens_on){
-            SDL_ShowWindow(this->tile_debug_window);
+            //SDL_ShowWindow(this->tile_debug_window);
             SDL_ShowWindow(this->main_window);
         } else {
-            SDL_HideWindow(this->tile_debug_window);
+            //SDL_HideWindow(this->tile_debug_window);
             SDL_HideWindow(this->main_window);
         }
     }
     if(this->screens_on){
         this->handle_events();
         this->main_screen_update();
-        this->tile_dbg_update();
+        //this->tile_dbg_update();
     }
 }
 void Ui::tile_dbg_update(){

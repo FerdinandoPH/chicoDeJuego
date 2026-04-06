@@ -6,6 +6,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <string>
+#include <controller.h>
 
 
 //#define SERIAL_LOG
@@ -50,6 +51,7 @@ class Memory {
         void process_mbc_write(u16 address, u8 data);
         //u8 process_mbc_read(u16 address);
         Dma* dma;
+        Controller* controller;
         bool vram_locked = false;
         bool oam_locked = false;
         #ifdef SERIAL_LOG
@@ -71,6 +73,7 @@ class Memory {
         void dump();
         void reset();
         void set_dma(Dma* dma);
+        void set_controller(Controller* controller);
         void set_vram_lock(bool locked);
         void set_oam_lock(bool locked);
         Cart_header get_cart_header();

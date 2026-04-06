@@ -47,7 +47,7 @@ class Debugger{
     public:
         Debug_mode dbg_level;
         std::vector<u16> last_pc_values;
-        Debugger(int& ticks, Memory& mem, Cpu& cpu, Timer& timer, Ppu& ppu);
+        Debugger(Debug_mode initial_dbg_level, int& ticks, Memory& mem, Cpu& cpu, Timer& timer, Ppu& ppu);
         void debug_print();
         bool check_breakpoints();
 

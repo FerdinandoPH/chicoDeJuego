@@ -1,6 +1,6 @@
 #pragma once
 
-#define P1_ADDR 0xFF00
+#define JOYP_ADDR 0xFF00
 #define SB_ADDR 0xFF01
 #define SC_ADDR 0xFF02
 #define DIV_ADDR 0xFF04
