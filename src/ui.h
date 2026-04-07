@@ -26,13 +26,13 @@ class Ui{
         void tile_dbg_update();
         void main_screen_update();
         void tile_display(u16 tile, int x, int y);
-        void handle_events();
+        bool handle_events();
         std::mutex video_buffer_mutex;
     public:
         Ui(Memory& mem, Controller& controller, int scale = 4);
         bool change_requested = false;
         void init();
-        void update();
+        bool update();
         void toggle_screens();
         void write_pixel(int x, int y, u32 color);
         void set_debugger(Debugger* dbg);

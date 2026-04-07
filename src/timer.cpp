@@ -14,7 +14,7 @@ void Timer::reset(){ //Everything else is reset by mem
     this->tima_accumulation = 0;
 }
 void Timer::tick(){
-    if(this->cpu.state != STOPPED){ //When stopped, the timer stops working
+    if(this->cpu.get_state() != STOPPED){ //When stopped, the timer stops working
         internal_clock++;
         if(internal_clock >=256){
             internal_clock = 0;

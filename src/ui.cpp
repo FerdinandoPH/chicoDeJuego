@@ -5,9 +5,8 @@ Ui::Ui(Memory& mem, Controller& controller, int scale) :  mem(mem), controller(c
 
 }
 void Ui::init(){
-    // SDL_CreateWindowAndRenderer(16*8*scale, 24*8*scale, 0, &this->tile_debug_window, &this->tile_debug_renderer);
-    // SDL_SetWindowTitle(this->tile_debug_window, "Tilemap Debugger");
-    // this->tile_debug_surface = SDL_CreateRGBSurface(0, 16*8*scale + 16*scale, 24*8*scale + 24*scale, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+    // SDL_CreateWindowAndRenderer("Tilemap Debugger", 16*8*scale, 24*8*scale, 0, &this->tile_debug_window, &this->tile_debug_renderer);
+    // this->tile_debug_surface = SDL_CreateSurface(16*8*scale + 16*scale, 24*8*scale + 24*scale, SDL_PIXELFORMAT_ARGB8888);
     // this->tile_debug_texture = SDL_CreateTexture(this->tile_debug_renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 16*8*scale + 16*scale, 24*8*scale + 24*scale);
     // SDL_SetWindowPosition(this->tile_debug_window, 1300, 150);
 
@@ -23,38 +22,37 @@ void Ui::init(){
 void Ui::set_debugger(Debugger* dbg){
     this->dbg = dbg;
 }
-void Ui::handle_events(){
+bool Ui::handle_events(){
     SDL_Event event;
     while (SDL_PollEvent(&event) > 0){
         switch (event.type){
             case SDL_EVENT_QUIT:
-                SDL_DestroyWindow(this->tile_debug_window);
-                SDL_DestroyRenderer(this->tile_debug_renderer);
-                SDL_DestroyTexture(this->tile_debug_texture);
-                SDL_DestroySurface(this->tile_debug_surface);
+                // SDL_DestroyWindow(this->tile_debug_window);
+                // SDL_DestroyRenderer(this->tile_debug_renderer);
+                // SDL_DestroyTexture(this->tile_debug_texture);
+                // SDL_DestroySurface(this->tile_debug_surface);
                 SDL_DestroyWindow(this->main_window);
                 SDL_DestroyRenderer(this->main_renderer);
                 SDL_DestroyTexture(this->main_texture);
-                delete[] this->video_buffer;
-                SDL_Quit();
-                //exit(0);
+                //SDL_Quit();
+                return false;
                 break;
             case SDL_EVENT_WINDOW_CLOSE_REQUESTED: {
                 Uint32 windowID = event.window.windowID;
                 Uint32 main_windowID = SDL_GetWindowID(this->main_window);
-                Uint32 debug_windowID = SDL_GetWindowID(this->tile_debug_window);
+                //Uint32 debug_windowID = SDL_GetWindowID(this->tile_debug_window);
 
-                if (windowID == main_windowID || windowID == debug_windowID){
-                    SDL_DestroyWindow(this->tile_debug_window);
-                    SDL_DestroyRenderer(this->tile_debug_renderer);
-                    SDL_DestroyTexture(this->tile_debug_texture);
-                    SDL_DestroySurface(this->tile_debug_surface);
+                if (windowID == main_windowID){// || windowID == debug_windowID){
+                    // SDL_DestroyWindow(this->tile_debug_window);
+                    // SDL_DestroyRenderer(this->tile_debug_renderer);
+                    // SDL_DestroyTexture(this->tile_debug_texture);
+                    // SDL_DestroySurface(this->tile_debug_surface);
                     SDL_DestroyWindow(this->main_window);
                     SDL_DestroyRenderer(this->main_renderer);
                     SDL_DestroyTexture(this->main_texture);
-                    delete[] this->video_buffer;
-                    SDL_Quit();
-                    exit(0);
+                    // SDL_Quit();
+                    // exit(0);
+                    return false;
                 }
                 break;
             }
@@ -82,8 +80,9 @@ void Ui::handle_events(){
                 break;
         }
     }
+    return true;
 }
-void Ui::update() {
+bool Ui::update() {
     if (this->change_requested){
         this->screens_on = !this->screens_on;
         this->change_requested = false;
@@ -96,10 +95,12 @@ void Ui::update() {
         }
     }
     if(this->screens_on){
-        this->handle_events();
+        if(!this->handle_events())
+            return false;
         this->main_screen_update();
         //this->tile_dbg_update();
     }
+    return true;
 }
 void Ui::tile_dbg_update(){
     SDL_Rect bg_rect = {0, 0, this->tile_debug_surface->w, this->tile_debug_surface->h};

@@ -41,7 +41,7 @@ void signal_handler(int signal){
             dbg.dbg_level = FULL_DBG;
         }
         else{
-            cpu->state = QUIT;
+            cpu->set_state(QUIT);
             std::exit(1);
         }
     }
@@ -103,7 +103,7 @@ void debug_menu(std::binary_semaphore* sem){
             case 'q':
                 printf("Quitting...\n");
                 exit = true;
-                cpu->state = QUIT;
+                cpu->set_state(QUIT);
                 break;
             case 'c':
                 dbg.dbg_level = OFF_DBG;
@@ -132,15 +132,15 @@ void debug_menu(std::binary_semaphore* sem){
     }
     printf("\n");
 }
-void cpu_run(void* thread_args){
+void* cpu_run(void* thread_args){
     std::binary_semaphore* sem = ((Cpu_thread_args*)thread_args)->sem;
     //std::chrono::duration<double, std::micro> elapsed = dbg.get_chrono();
     //FILE* log_pc = fopen("chicoDeJuego.emulog", "wb");
-    while(cpu->state != QUIT){
+    while(cpu->get_state() != QUIT){
         if(cpu->check_interrupts() && (dbg.dbg_level == FULL_DBG || dbg.dbg_level == PRINT_DBG)){
             printf("%s interrupt triggered\n",interrupt_names[cpu->regs[PC]].c_str());
         }
-        if(cpu->state == PAUSED){
+        if(cpu->get_state() == PAUSED){
             SDL_Delay(10);
             continue;
         }
@@ -166,6 +166,7 @@ void cpu_run(void* thread_args){
 
     }
     //fclose(log_pc);
+    return nullptr;
 }
 
 int emu_run(int argc, char** argv){
@@ -188,16 +189,18 @@ int emu_run(int argc, char** argv){
     std::binary_semaphore sem = std::binary_semaphore(0);
     Cpu_thread_args thread_args = {&sem};
     pthread_t cpu_thread;
-    pthread_create(&cpu_thread, NULL, (void*(*)(void*))cpu_run, &thread_args);
-    while(cpu->state != QUIT){
+    pthread_create(&cpu_thread, NULL, cpu_run, &thread_args);
+    while(cpu->get_state() != QUIT){
         ui_mutex.lock();
-        ui->update();
+        if(!ui->update())
+            cpu->set_state(QUIT);
         ui_mutex.unlock();
         if (resetting){
             resetting = false;
             sem.release();
         }
     }
+    pthread_join(cpu_thread, nullptr);
     return 0;
 }
 void run_ticks(int ticks_to_run){

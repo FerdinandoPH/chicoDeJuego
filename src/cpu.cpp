@@ -1329,7 +1329,7 @@ Instr Cpu::instr_table_prefix[0x100] = {
     (Instr){(Instr_args){"SET",0xCBFD, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::SET},
     (Instr){(Instr_args){"SET",0xCBFE, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::SET},
     (Instr){(Instr_args){"SET",0xCBFF, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::SET}};
-Cpu::Cpu(Memory& memory): mem(memory){
+Cpu::Cpu(Memory& memory): mem(memory), cpu_state_mutex(){
     this->reset();
 }
 
@@ -1372,6 +1372,18 @@ void Cpu::set_IE(u16 value){
 }
 void Cpu::set_IF(u16 value){
     this->mem[0xFF0F] = static_cast<u8>(value);
+}
+Cpu_State Cpu::get_state(){
+    std::scoped_lock lock(this->cpu_state_mutex);
+    return this->state;
+}
+bool Cpu::set_state(Cpu_State new_state){
+    std::scoped_lock lock(this->cpu_state_mutex);
+    if (this->state == QUIT){
+        return false;
+    }
+    this->state = new_state;
+    return true;
 }
 bool Cpu::check_interrupts(){ //Checks if there are any interrupts to handle. If there are, it handles them
     if (this->IME || this->state == HALTED){

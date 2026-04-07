@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <algorithm>
 #include <string>
+#include <mutex>
 typedef enum {RUNNING, PAUSED, STOPPED, HALTED, QUIT} Cpu_State;
 
 class Memory;
@@ -203,7 +204,9 @@ typedef struct{
 }Cpu_trace;
 class Cpu{
     private:
+        Cpu_State state = RUNNING;
         Memory& mem;
+        std::mutex cpu_state_mutex;
         void fetch_operand(Operand& op, bool affect=true);
         void write_to_operand_8bit(Operand &op, u16 value, Addr_mode src_addr);
         void write_to_operand_16bit(Operand &op, u16 value, Addr_mode src_addr);
@@ -249,7 +252,7 @@ class Cpu{
             void CCF(Instr_args args);
         #pragma endregion
     public:
-        Cpu_State state = RUNNING;
+        
         bool IME = false;
         u8 IME_pending;
         HALT_SUBSTATE halt_substate;
@@ -262,6 +265,8 @@ class Cpu{
         ~Cpu();
         #endif
         bool step();
+        Cpu_State get_state();
+        bool set_state(Cpu_State new_state);
         Int_Info get_INTs();
         void set_IE(u16 value);
         void set_IF(u16 value);
