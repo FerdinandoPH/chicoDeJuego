@@ -6,7 +6,9 @@
 #include <deque>
 #include <SDL3/SDL.h>
 class Memory;
+class Emu_sync;
 enum class Key{UP, DOWN, LEFT, RIGHT, A, B, START, SELECT};
+enum class Extra_key{TURBO};
 enum class Poll_mode{DIRECTION, BUTTON, NONE};
 enum class Controller_event_type{KEY_DOWN, KEY_UP};
 typedef struct{
@@ -16,10 +18,13 @@ typedef struct{
 class Controller {
     private:
         Memory& mem;
+        Emu_sync* sync_controller;
         Poll_mode poll_mode;
         u8 keys_state = 0xFF; // First 4 bits for buttons, last 4 for directions. 0 means pressed, 1 means released
         std::unordered_map<SDL_Scancode, Key> key_dict;
         std::unordered_set<SDL_Scancode> sdl_key_set;
+        std::unordered_map<SDL_Scancode, Extra_key> extra_key_dict;
+        std::unordered_set<SDL_Scancode> extra_sdl_key_set;
         std::unordered_map<Key, u8> key_to_bit = {
             {Key::RIGHT, 0}, {Key::LEFT, 1}, {Key::UP, 2}, {Key::DOWN, 3},
             {Key::A, 0}, {Key::B, 1}, {Key::SELECT, 2}, {Key::START, 3}
@@ -35,6 +40,7 @@ class Controller {
         void key_up(SDL_Scancode key);
     public:
         Controller(Memory& mem);
+        void set_sync_controller(Emu_sync* sync_controller);
         void reset();
         u8 joyp_change(u8 data);
         void enqueue_event(SDL_Scancode key, Controller_event_type type);

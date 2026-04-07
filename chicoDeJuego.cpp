@@ -1,4 +1,5 @@
-#include <emu.h>
+#include "emu.h"
+#include <SDL3/SDL_main.h>
 #ifdef _WIN32
 
     #include <windows.h>

@@ -25,7 +25,6 @@ typedef uint64_t u64;
 #define BETWEEN(n, min, max) (n >= min && n <= max)
 #define MIN(a, b) (a < b ? a : b)
 #define MAX(a, b) (a > b ? a : b)
-void delay(u32 ms);
 template <typename T>
 std::string numToHexString(T value, int width = 0, bool is_imme8 = false){
     std::ostringstream oss;

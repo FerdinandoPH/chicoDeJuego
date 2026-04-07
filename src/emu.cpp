@@ -9,6 +9,7 @@
 #include "ppu.h"
 #include "dma.h"
 #include "controller.h"
+#include "sync.h"
 #include <pthread.h>
 #include <iostream>
 #include <csignal>
@@ -19,11 +20,13 @@ Debug_mode initial_dbg_mode = NO_DBG;
 
 Memory* memory = new Memory();
 Controller* controller = new Controller(*memory);
+
 Dma* dma = new Dma(memory);
 Cpu* cpu = new Cpu(*memory);
 Timer* timer = new Timer(*cpu, *memory);
 int ticks = 0;
 int ticks_since_last_sync = 0;
+Emu_sync* sync_controller = new Emu_sync(ticks, ticks_since_last_sync, controller);
 bool resetting = false;
 Ui* ui = new Ui(*memory, *controller, 4);
 Ppu* ppu = new Ppu(*memory, ui, 4);
@@ -42,9 +45,6 @@ void signal_handler(int signal){
             std::exit(1);
         }
     }
-}
-void delay(u32 ms){
-    SDL_Delay(ms);
 }
 void emu_reset(std::binary_semaphore* sem = nullptr){
     if (sem != nullptr){
@@ -141,7 +141,7 @@ void cpu_run(void* thread_args){
             printf("%s interrupt triggered\n",interrupt_names[cpu->regs[PC]].c_str());
         }
         if(cpu->state == PAUSED){
-            delay(10);
+            SDL_Delay(10);
             continue;
         }
         #ifdef TRACEGEN
@@ -159,7 +159,9 @@ void cpu_run(void* thread_args){
         }
         //dbg.start_chrono();
         cpu->step();
-        controller->process_events();
+        if(ticks_since_last_sync >= 70224){ //Sync every 70224 ticks (1 frame)
+            sync_controller->sync();
+        }
         //elapsed = dbg.get_chrono();
 
     }
@@ -172,6 +174,7 @@ int emu_run(int argc, char** argv){
     memory->set_dma(dma);
     memory->set_controller(controller);
     ui->init();
+    controller->set_sync_controller(sync_controller);
     if(argc < 2 || !memory->load_rom(argv[1])){
         printf("Error loading ROM\n");
         return 1;
@@ -187,7 +190,6 @@ int emu_run(int argc, char** argv){
     pthread_t cpu_thread;
     pthread_create(&cpu_thread, NULL, (void*(*)(void*))cpu_run, &thread_args);
     while(cpu->state != QUIT){
-        delay(10);
         ui_mutex.lock();
         ui->update();
         ui_mutex.unlock();

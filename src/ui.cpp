@@ -15,7 +15,7 @@ void Ui::init(){
     SDL_CreateWindowAndRenderer("Chico de Juego", XRES*scale, YRES*scale, 0, &this->main_window, &this->main_renderer);
     SDL_SetWindowTitle(this->main_window, "Chico de Juego");
     this->main_texture = SDL_CreateTexture(this->main_renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, XRES, YRES);
-
+    SDL_SetRenderVSync(this->main_renderer, 1);
     // Pixel-perfect rendering: avoid linear filtering artifacts when scaling.
     SDL_SetTextureScaleMode(this->main_texture, SDL_SCALEMODE_NEAREST);
     SDL_SetRenderLogicalPresentation(this->main_renderer, XRES, YRES, SDL_LOGICAL_PRESENTATION_INTEGER_SCALE);

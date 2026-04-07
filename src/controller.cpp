@@ -1,11 +1,14 @@
 #include "controller.h"
 #include "memory.h"
+#include "sync.h"
 
 Controller::Controller(Memory& mem) : mem(mem), event_queue(), event_queue_mutex() {
     this->define_keys();
     this->reset();
 }
-
+void Controller::set_sync_controller(Emu_sync* sync_controller){
+    this->sync_controller = sync_controller;
+}
 void Controller::define_keys(){
     //It will be configurable in the future, for now it's hardcoded
     this->key_dict[SDL_SCANCODE_UP] = Key::UP;
@@ -24,6 +27,9 @@ void Controller::define_keys(){
     this->sdl_key_set.insert(SDL_SCANCODE_RETURN);
     this->key_dict[SDL_SCANCODE_BACKSPACE] = Key::SELECT;
     this->sdl_key_set.insert(SDL_SCANCODE_BACKSPACE);
+
+    this->extra_key_dict[SDL_SCANCODE_SPACE] = Extra_key::TURBO;
+    this->extra_sdl_key_set.insert(SDL_SCANCODE_SPACE);
 }
 void Controller::reset(){
     this->poll_mode = Poll_mode::NONE;
@@ -87,6 +93,13 @@ void Controller::key_down(SDL_Scancode sdl_key){
             mem.writeX(JOYP_ADDR, new_value);
             mem.writeX(IF_ADDR, (u8)(mem.readX(IF_ADDR) | 0x10)); //Joypad interrupt
         }
+    }else if (this->extra_sdl_key_set.count(sdl_key)){
+        Extra_key extra_key = this->extra_key_dict[sdl_key];
+        switch(extra_key){
+            case Extra_key::TURBO:
+                sync_controller->set_turbo_mode(true);
+                break;
+        }
     }
 }
 
@@ -104,6 +117,13 @@ void Controller::key_up(SDL_Scancode sdl_key){
                 new_value |= (keys_state & 0x0F);
             }
             mem.writeX(JOYP_ADDR, new_value);
+        }
+    }else if (this->extra_sdl_key_set.count(sdl_key)){
+        Extra_key extra_key = this->extra_key_dict[sdl_key];
+        switch(extra_key){
+            case Extra_key::TURBO:
+                sync_controller->set_turbo_mode(false);
+                break;
         }
     }
 }
