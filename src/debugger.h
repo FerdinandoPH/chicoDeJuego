@@ -1,13 +1,15 @@
 #pragma once
-#include <utils.h>
-#include <memory.h>
-#include <cpu.h>
-#include <timer.h>
-#include <ppu.h>
+#include "utils.h"
+#include "memory.h"
+#include "cpu.h"
+#include "timer.h"
+#include "ppu.h"
 #include <vector>
 #include <unordered_map>
-#include <chrono>
+//#include <chrono>
+
 //#define TRACEGEN
+
 typedef enum {NO_DBG, OFF_DBG, PRINT_DBG, FULL_DBG} Debug_mode;
 enum class Dbg_cond{EQ, NEQ, GT, LT, GTE, LTE, BET};
 enum class Breakpoint_type{POS, OPCODE, MEM, REG};
@@ -39,7 +41,7 @@ class Debugger{
         std::vector<u16> opcode_breakpoints;
         std::vector<Mem_breakpoint> mem_breakpoints;
         std::vector<Reg_breakpoint> reg_breakpoints;
-        std::chrono::time_point<std::chrono::system_clock> last_time;
+        //std::chrono::time_point<std::chrono::system_clock> last_time;
         #ifdef TRACEGEN
         FILE* trace_file;
         #endif
@@ -59,8 +61,8 @@ class Debugger{
 
         void del_breakpoint_menu();
         void reset();
-        void start_chrono();
-        std::chrono::duration<double, std::micro> get_chrono();
+        //void start_chrono();
+        //std::chrono::duration<double, std::micro> get_chrono();
         bool del_breakpoint(Breakpoint_type br_type, size_t index);
         void clear_breakpoints();
         std::string breakpoints_toString();

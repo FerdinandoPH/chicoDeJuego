@@ -1,5 +1,5 @@
-#include <ui.h>
-#include <debugger.h>
+#include "ui.h"
+#include "debugger.h"
 
 Ui::Ui(Memory& mem, Controller& controller, int scale) :  mem(mem), controller(controller), scale(scale), video_buffer_mutex() {
 
@@ -12,9 +12,13 @@ void Ui::init(){
     // SDL_SetWindowPosition(this->tile_debug_window, 1300, 150);
 
     this->video_buffer = new u32[XRES * YRES];
-    SDL_CreateWindowAndRenderer(XRES*scale, YRES*scale, 0, &this->main_window, &this->main_renderer);
+    SDL_CreateWindowAndRenderer("Chico de Juego", XRES*scale, YRES*scale, 0, &this->main_window, &this->main_renderer);
     SDL_SetWindowTitle(this->main_window, "Chico de Juego");
     this->main_texture = SDL_CreateTexture(this->main_renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, XRES, YRES);
+
+    // Pixel-perfect rendering: avoid linear filtering artifacts when scaling.
+    SDL_SetTextureScaleMode(this->main_texture, SDL_SCALEMODE_NEAREST);
+    SDL_SetRenderLogicalPresentation(this->main_renderer, XRES, YRES, SDL_LOGICAL_PRESENTATION_INTEGER_SCALE);
 }
 void Ui::set_debugger(Debugger* dbg){
     this->dbg = dbg;
@@ -23,11 +27,11 @@ void Ui::handle_events(){
     SDL_Event event;
     while (SDL_PollEvent(&event) > 0){
         switch (event.type){
-            case SDL_QUIT:
+            case SDL_EVENT_QUIT:
                 SDL_DestroyWindow(this->tile_debug_window);
                 SDL_DestroyRenderer(this->tile_debug_renderer);
                 SDL_DestroyTexture(this->tile_debug_texture);
-                SDL_FreeSurface(this->tile_debug_surface);
+                SDL_DestroySurface(this->tile_debug_surface);
                 SDL_DestroyWindow(this->main_window);
                 SDL_DestroyRenderer(this->main_renderer);
                 SDL_DestroyTexture(this->main_texture);
@@ -35,46 +39,43 @@ void Ui::handle_events(){
                 SDL_Quit();
                 //exit(0);
                 break;
-            case SDL_WINDOWEVENT:
-                if (event.window.event == SDL_WINDOWEVENT_CLOSE){
-                    // Obtener el ID de la ventana que generó el evento
-                    Uint32 windowID = event.window.windowID;
-                    Uint32 main_windowID = SDL_GetWindowID(this->main_window);
-                    Uint32 debug_windowID = SDL_GetWindowID(this->tile_debug_window);
-                    
-                    if (windowID == main_windowID || windowID == debug_windowID){
-                        // Cerrar todo si se cierra cualquier ventana
-                        SDL_DestroyWindow(this->tile_debug_window);
-                        SDL_DestroyRenderer(this->tile_debug_renderer);
-                        SDL_DestroyTexture(this->tile_debug_texture);
-                        SDL_FreeSurface(this->tile_debug_surface);
-                        SDL_DestroyWindow(this->main_window);
-                        SDL_DestroyRenderer(this->main_renderer);
-                        SDL_DestroyTexture(this->main_texture);
-                        delete[] this->video_buffer;
-                        SDL_Quit();
-                        exit(0);
-                    }
+            case SDL_EVENT_WINDOW_CLOSE_REQUESTED: {
+                Uint32 windowID = event.window.windowID;
+                Uint32 main_windowID = SDL_GetWindowID(this->main_window);
+                Uint32 debug_windowID = SDL_GetWindowID(this->tile_debug_window);
+
+                if (windowID == main_windowID || windowID == debug_windowID){
+                    SDL_DestroyWindow(this->tile_debug_window);
+                    SDL_DestroyRenderer(this->tile_debug_renderer);
+                    SDL_DestroyTexture(this->tile_debug_texture);
+                    SDL_DestroySurface(this->tile_debug_surface);
+                    SDL_DestroyWindow(this->main_window);
+                    SDL_DestroyRenderer(this->main_renderer);
+                    SDL_DestroyTexture(this->main_texture);
+                    delete[] this->video_buffer;
+                    SDL_Quit();
+                    exit(0);
                 }
                 break;
-            case SDL_KEYDOWN:
-                switch (event.key.keysym.scancode){
+            }
+            case SDL_EVENT_KEY_DOWN:
+                switch (event.key.scancode){
                     case SDL_SCANCODE_ESCAPE:
                         this->dbg->dbg_level = FULL_DBG;
                         break;
                     default:
                         if (!event.key.repeat){
-                            //printf("Key down: %s\n", SDL_GetScancodeName(event.key.keysym.scancode));
-                            this->controller.enqueue_event(event.key.keysym.scancode, Controller_event_type::KEY_DOWN);
+                            //printf("Key down: %s\n", SDL_GetScancodeName(event.key.scancode));
+                            this->controller.enqueue_event(event.key.scancode, Controller_event_type::KEY_DOWN);
                         }
 
                         break;
                 }
                 break;
-            case SDL_KEYUP:
+            case SDL_EVENT_KEY_UP:
                 if (!event.key.repeat){
-                    //printf("Key up: %s\n", SDL_GetScancodeName(event.key.keysym.scancode));
-                    this->controller.enqueue_event(event.key.keysym.scancode, Controller_event_type::KEY_UP);
+                    //printf("Key up: %s\n", SDL_GetScancodeName(event.key.scancode));
+                    this->controller.enqueue_event(event.key.scancode, Controller_event_type::KEY_UP);
                 }
                 break;
             default:
@@ -102,7 +103,7 @@ void Ui::update() {
 }
 void Ui::tile_dbg_update(){
     SDL_Rect bg_rect = {0, 0, this->tile_debug_surface->w, this->tile_debug_surface->h};
-    SDL_FillRect(this->tile_debug_surface, &bg_rect, 0x000000);
+    SDL_FillSurfaceRect(this->tile_debug_surface, &bg_rect, 0x000000);
     //384 tiles, 24 x 16
     for (int y = 0; y < 24; y++){
         for (int x = 0; x < 16; x++){
@@ -111,7 +112,7 @@ void Ui::tile_dbg_update(){
     }
     SDL_UpdateTexture(this->tile_debug_texture, NULL, this->tile_debug_surface->pixels, this->tile_debug_surface->pitch);
     SDL_RenderClear(this->tile_debug_renderer);
-    SDL_RenderCopy(this->tile_debug_renderer, this->tile_debug_texture, NULL, NULL);
+    SDL_RenderTexture(this->tile_debug_renderer, this->tile_debug_texture, NULL, NULL);
     SDL_RenderPresent(this->tile_debug_renderer);
 }
 void Ui::tile_display(u16 tile, int x, int y){
@@ -124,7 +125,7 @@ void Ui::tile_display(u16 tile, int x, int y){
             rect.x = x + pixel*scale;
             rect.y = y + (line/2)*scale;
             rect.w = rect.h = scale;
-            SDL_FillRect(this->tile_debug_surface, &rect, gb_palette[color]);
+            SDL_FillSurfaceRect(this->tile_debug_surface, &rect, gb_palette[color]);
         }
     }
 }
@@ -138,6 +139,6 @@ void Ui::main_screen_update(){
     SDL_UpdateTexture(this->main_texture, NULL, this->video_buffer, XRES * sizeof(u32));
     video_buffer_mutex.unlock();
     SDL_RenderClear(this->main_renderer);
-    SDL_RenderCopy(this->main_renderer, this->main_texture, NULL, NULL);
+    SDL_RenderTexture(this->main_renderer, this->main_texture, NULL, NULL);
     SDL_RenderPresent(this->main_renderer);
 }

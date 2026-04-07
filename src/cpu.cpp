@@ -1,9 +1,9 @@
-#include <cpu.h>
-#include <emu.h>
-#include <memory.h>
+#include "cpu.h"
+#include "emu.h"
+#include "memory.h"
 #include <string>
 #include <iostream>
-#include <utils.h>
+#include "utils.h"
 #include <chrono>
 Flag flag_arr[] = {Flag::Z, Flag::N, Flag::H, Flag::C};
 int size_flag_arr = sizeof(flag_arr)/sizeof(flag_arr[0]);

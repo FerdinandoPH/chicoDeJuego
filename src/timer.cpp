@@ -1,4 +1,4 @@
-#include <timer.h>
+#include "timer.h"
 Timer::Timer(Cpu& cpu, Memory& mem) : cpu(cpu), mem(mem) {
     this->reset();
 }

@@ -1,8 +1,8 @@
 #pragma once
-#include <utils.h>
-#include <screen_specs.h>
-#include <memory.h>
-#include <ui.h>
+#include "utils.h"
+#include "screen_specs.h"
+#include "memory.h"
+#include "ui.h"
 #include <unordered_map>
 #include <deque>
 
@@ -63,7 +63,7 @@ class Pixel_Fetcher{
         Tile_type tile_type_bak;
         u8 tile_lo;
         u8 tile_hi;
-        Pixel pixel_buffer[8];
+        Pixel fetcher_pixel_buffer[8];
         u8 get_line_to_read();
         void assemble_pixels();
     public:

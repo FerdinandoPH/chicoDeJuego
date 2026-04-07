@@ -1,4 +1,4 @@
-#include <debugger.h>
+#include "debugger.h"
 
 
 std::unordered_map<std::string, Dbg_cond> dbg_cond_map = {
@@ -12,7 +12,7 @@ std::unordered_map<u16, std::string> interrupt_names = {
 };
 Debugger::Debugger(Debug_mode initial_dbg_level, int& ticks, Memory& mem, Cpu& cpu, Timer& timer, Ppu& ppu) : ticks(ticks), mem(mem), cpu(cpu), timer(timer), ppu(ppu){
     this->dbg_level = initial_dbg_level;
-    this->start_chrono();
+    //this->start_chrono();
     this->last_pc_values = std::vector<u16>(10, 0x100);
 }
 #ifdef TRACEGEN
@@ -362,15 +362,15 @@ void Debugger::reset(){
     this->last_pc_values = std::vector<u16>(10, 0x100);
 }
 
-void Debugger::start_chrono(){
-    this->last_time = std::chrono::high_resolution_clock::now();
-}
+// void Debugger::start_chrono(){
+//     this->last_time = std::chrono::high_resolution_clock::now();
+// }
 
-std::chrono::duration<double, std::micro> Debugger::get_chrono(){
-    return std::chrono::duration_cast<std::chrono::duration<double, std::micro>>(
-        std::chrono::high_resolution_clock::now() - this->last_time
-    );
-}
+// std::chrono::duration<double, std::micro> Debugger::get_chrono(){
+//     return std::chrono::duration_cast<std::chrono::duration<double, std::micro>>(
+//         std::chrono::high_resolution_clock::now() - this->last_time
+//     );
+// }
 
 #ifdef TRACEGEN
 void Debugger::generate_trace(){

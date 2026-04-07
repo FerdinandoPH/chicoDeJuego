@@ -1,5 +1,5 @@
-#include <controller.h>
-#include <memory.h>
+#include "controller.h"
+#include "memory.h"
 
 Controller::Controller(Memory& mem) : mem(mem), event_queue(), event_queue_mutex() {
     this->define_keys();

@@ -1,4 +1,4 @@
-#include <ppu.h>
+#include "ppu.h"
 
 Pixel_Fetcher::Pixel_Fetcher(Memory& mem) : mem(mem) {
     this->state = Pixel_fetcher_state::READ_TILE;
@@ -61,11 +61,11 @@ void Pixel_Fetcher::assemble_pixels(){
     bool is_x_flipped_sprite = is_sprite && spr.x_flip;
     for (int i = 0; i < 8; i++){
         u8 color_index = ((tile_hi >> (7 - i)) & 1) << 1 | ((tile_lo >> (7 - i)) & 1);
-        Pixel pixel = {color_index, Palette::BG, tile_type, spr.priority};
+        Pixel pixel = {color_index, Palette::BG, tile_type, is_sprite ? spr.priority : false};
         if (is_sprite){
             pixel.palette = spr.palette ? Palette::OBJ1 : Palette::OBJ0;
         }
-        pixel_buffer[is_x_flipped_sprite ? 7 - i : i] = pixel;
+        fetcher_pixel_buffer[is_x_flipped_sprite ? 7 - i : i] = pixel;
     }
 }
 void Pixel_Fetcher::tick(){
@@ -128,12 +128,12 @@ void Pixel_Fetcher::tick(){
             break;
         case Pixel_fetcher_state::PUSH:
             if(this->tile_type == Tile_type::SPRITE){
-                fifo->push_obj(pixel_buffer);
+                fifo->push_obj(fetcher_pixel_buffer);
                 this->tile_type = this->tile_type_bak;
                 this->state = Pixel_fetcher_state::READ_TILE;
             }
             else if(fifo->is_main_fifo_empty()){
-                fifo->push(pixel_buffer);
+                fifo->push(fetcher_pixel_buffer);
                 f_lx = fifo->get_lx();
                 f_win_lx = f_lx - fifo->get_triggered_wx();
                 this->state = Pixel_fetcher_state::READ_TILE;
@@ -199,20 +199,20 @@ u32 Pixel_FIFO::get_final_color(Pixel pixel){
 u8 Pixel_FIFO::get_triggered_wx(){
     return triggered_wx;
 }
-void Pixel_FIFO::push(Pixel* pixels){
+void Pixel_FIFO::push(Pixel* new_pixels){
     for (int i = 0; i < 8; i++){
-        this->pixels.push_back(pixels[i]);
+        this->pixels.push_back(new_pixels[i]);
     }
 }
-void Pixel_FIFO::push_obj(Pixel* pixels){
+void Pixel_FIFO::push_obj(Pixel* new_pixels){
     u8 current_obj_fifo_size = obj_pixels.size();
     for (int i = 0; i < current_obj_fifo_size; i++){
         Pixel curr_pixel = obj_pixels.front();
         obj_pixels.pop_front();
-        this->obj_pixels.push_back(curr_pixel.color_index == 0 && pixels[i].color_index != 0 ? pixels[i] : curr_pixel);
+        this->obj_pixels.push_back(curr_pixel.color_index == 0 && new_pixels[i].color_index != 0 ? new_pixels[i] : curr_pixel);
     }
     for(int i = current_obj_fifo_size; i < 8; i++){
-        this->obj_pixels.push_back(pixels[i]);
+        this->obj_pixels.push_back(new_pixels[i]);
     }
     this->waiting_for_sprite = false;
 }

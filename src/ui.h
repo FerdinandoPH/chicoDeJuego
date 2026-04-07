@@ -1,12 +1,11 @@
 #pragma once
-#include <utils.h>
+#include "utils.h"
 
-#include <screen_specs.h>
-#include <memory.h>
-#include <controller.h>
+#include "screen_specs.h"
+#include "memory.h"
+#include "controller.h"
 #include <mutex>
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_ttf.h>
+#include <SDL3/SDL.h>
 class Debugger;
 class Ui{
     private:

@@ -1,12 +1,12 @@
 #pragma once
 #include <cstdint>
-#include <utils.h>
+#include "utils.h"
 #include <mutex>
-#include <dma.h>
+#include "dma.h"
 #include <unordered_set>
 #include <unordered_map>
 #include <string>
-#include <controller.h>
+#include "controller.h"
 
 
 //#define SERIAL_LOG
@@ -28,6 +28,10 @@ typedef struct{
     u8 header_checksum;
     u16 global_checksum;
 } Cart_header;
+typedef struct{
+    bool change;
+    u8 data;
+} MBC_result;
 class Memory {
 
     private:
@@ -48,7 +52,7 @@ class Memory {
                 Proxy& operator=(u8 data) { _memory.write(_addr, data, true); return *this; }
         };
         void load_initial_values();
-        void process_mbc_write(u16 address, u8 data);
+        MBC_result process_MBC_write(u16 address, u8 data);
         //u8 process_mbc_read(u16 address);
         Dma* dma;
         Controller* controller;

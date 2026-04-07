@@ -1,5 +1,5 @@
 #pragma once
-#include <hw_reg_def.h>
+#include "hw_reg_def.h"
 #include <cstdint>
 #include <stdint.h>
 #include <stdlib.h>

@@ -1,5 +1,5 @@
-#include <memory.h>
-#include <utils.h>
+#include "memory.h"
+#include "utils.h"
 #include <cstring>
 #include <cstdio>
 #include <algorithm>
@@ -8,7 +8,7 @@
 #include <sstream>
 #include <iomanip>
 #include <vector>
-#include <sha256.h>
+#include "sha256.h"
 std::unordered_map<MBC_type, std::string> mbc_names = {
     {MBC_type::NONE, "None"},
     {MBC_type::MBC1, "MBC1"},
@@ -42,13 +42,13 @@ void Memory::write(u16 address, u8 data, bool from_cpu) {
     bool writable = true;
     from_cpu = from_cpu && this->is_protected;
     if (from_cpu){
-        process_mbc_write(address, data);
+        process_MBC_write(address, data);
         if(address<0x8000){
             std::cout<<"Rom write attempt at address: "<<numToHexString(address, 4)<<" and value: "<<numToHexString(data, 2)<<std::endl;
             //writable = false;
             return;
         }
-        if(dma->transferring && !BETWEEN(address, 0xFE00, 0xFE9F)){
+        if(dma->transferring && !BETWEEN(address, 0xFF80, 0xFFFE)){
             std::cout<<"Writing during DMA transfer at address: "<<numToHexString(address, 4)<<" and value: "<<numToHexString(data, 2)<<std::endl;
             //writable = false;
             return;
@@ -240,7 +240,8 @@ void Memory::set_vram_lock(bool locked){
 void Memory::set_oam_lock(bool locked){
     this->oam_locked = locked;
 }
-void Memory::process_mbc_write(u16 address, u8 data){
+MBC_result Memory::process_MBC_write(u16 address, u8 data){
+    MBC_result result = {false, 0};
     switch(this->mbc_type){
         case MBC_type::MBC1:
             if (BETWEEN(address, 0x2000, 0x3FFF)){
@@ -248,11 +249,14 @@ void Memory::process_mbc_write(u16 address, u8 data){
                 u16 rom_bank = data & 0x1F;
                 if (rom_bank == 0) rom_bank = 1;
                 memcpy(_mem + 0x4000, _rom + rom_bank*0x4000, 0x4000);
+                return result;
             }
             break;
         default:
+            return result;
             break;
     }
+    return result;
 }
 
 Cart_header Memory::get_cart_header(){

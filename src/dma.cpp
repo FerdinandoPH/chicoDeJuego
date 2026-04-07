@@ -1,5 +1,5 @@
-#include <dma.h>
-#include <memory.h>
+#include "dma.h"
+#include "memory.h"
 Dma::Dma(Memory* mem) : mem(mem) {
 
 }

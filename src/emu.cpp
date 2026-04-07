@@ -1,14 +1,14 @@
-#include <emu.h>
-#include <debugger.h>
-#include <memory.h>
-#include <utils.h>
-#include <cpu.h>
-#include <timer.h>
+#include "emu.h"
+#include "debugger.h"
+#include "memory.h"
+#include "utils.h"
+#include "cpu.h"
+#include "timer.h"
 #include <stdio.h>
-#include <ui.h>
-#include <ppu.h>
-#include <dma.h>
-#include <controller.h>
+#include "ui.h"
+#include "ppu.h"
+#include "dma.h"
+#include "controller.h"
 #include <pthread.h>
 #include <iostream>
 #include <csignal>
@@ -23,6 +23,7 @@ Dma* dma = new Dma(memory);
 Cpu* cpu = new Cpu(*memory);
 Timer* timer = new Timer(*cpu, *memory);
 int ticks = 0;
+int ticks_since_last_sync = 0;
 bool resetting = false;
 Ui* ui = new Ui(*memory, *controller, 4);
 Ppu* ppu = new Ppu(*memory, ui, 4);
@@ -58,6 +59,79 @@ void emu_reset(std::binary_semaphore* sem = nullptr){
     controller->reset();
     dbg.reset();
 }
+void debug_menu(std::binary_semaphore* sem){
+    bool exit = false;
+    while(!exit){
+        printf("Enter your command (h for help): ");
+        char command[25];
+        fflush(stdin);
+        fgets(command, sizeof(command), stdin);
+        command[strcspn(command, "\n")] = '\0';
+        switch(command[0]){
+            case 0: case 's':
+                exit = true;
+                continue;
+                break;
+            case 'b':
+                dbg.add_breakpoint_menu();
+                break;
+            case 'd':
+                std::cout<<dbg.breakpoints_toString()<<std::endl;
+                break;
+            case 'x':
+                dbg.del_breakpoint_menu();
+                break;
+            case 'h':
+                printf("h: Help\n");
+                printf("b: Add breakpoint\n");
+                printf("d: Display breakpoints\n");
+                printf("x: Delete breakpoint");
+                printf("g: Enable/disable screen");
+                printf("s: Step\n");
+                printf("c: Continue\n");
+                printf("r: Reset\n");
+                printf("m: Memory dump\n");
+                printf("i: Debugger\n");
+                printf("v: See last 10 PC values\n");
+                printf("q: Quit\n");
+                break;
+            case 'g':
+                ui_mutex.lock();
+                ui->change_requested = true;
+                ui_mutex.unlock();
+                break;
+            case 'q':
+                printf("Quitting...\n");
+                exit = true;
+                cpu->state = QUIT;
+                break;
+            case 'c':
+                dbg.dbg_level = OFF_DBG;
+                exit = true;
+                break;
+            case 'r':
+                printf("Resetting...\n");
+                emu_reset(sem);
+                dbg.debug_print();
+                
+                break;
+            case 'm':
+                memory->dump();
+                break;
+            case 'v':
+                std::cout<<"[";
+                for (int i = 0; i < 10; i++){
+                    std::cout<<numToHexString(dbg.last_pc_values[i], 4)<<" ";
+                }
+                std::cout<<"]"<<std::endl;
+                break;
+            case 'i':
+                std::cout<<"Opening VsCode debugger..."<<std::endl; //Place breakpoint here
+                break;
+        }
+    }
+    printf("\n");
+}
 void cpu_run(void* thread_args){
     std::binary_semaphore* sem = ((Cpu_thread_args*)thread_args)->sem;
     //std::chrono::duration<double, std::micro> elapsed = dbg.get_chrono();
@@ -74,87 +148,12 @@ void cpu_run(void* thread_args){
         dbg.generate_trace();
         #endif
         if(dbg.dbg_level != NO_DBG){
-            
             dbg.check_breakpoints();
-            
             if(dbg.dbg_level == PRINT_DBG || dbg.dbg_level == FULL_DBG){
-                
                 //std::cout<<"Elapsed time: "<<elapsed.count()<<"us"<<std::endl;
                 dbg.debug_print();
                 if(dbg.dbg_level == FULL_DBG){
-                    bool exit = false;
-                    while(!exit){
-                        printf("Enter your command (h for help): ");
-                        char command[25];
-                        fflush(stdin);
-                        fgets(command, sizeof(command), stdin);
-                        command[strcspn(command, "\n")] = '\0';
-                        switch(command[0]){
-                            case 0: case 's':
-                                exit = true;
-                                continue;
-                                break;
-                            case 'b':
-                                dbg.add_breakpoint_menu();
-                                break;
-                            case 'd':
-                                std::cout<<dbg.breakpoints_toString()<<std::endl;
-                                break;
-                            case 'x':
-                                dbg.del_breakpoint_menu();
-                                break;
-                            case 'h':
-                                printf("h: Help\n");
-                                printf("b: Add breakpoint\n");
-                                printf("d: Display breakpoints\n");
-                                printf("x: Delete breakpoint");
-                                printf("g: Enable/disable screen");
-                                printf("s: Step\n");
-                                printf("c: Continue\n");
-                                printf("r: Reset\n");
-                                printf("m: Memory dump\n");
-                                printf("i: Debugger\n");
-                                printf("v: See last 10 PC values\n");
-                                printf("q: Quit\n");
-                                break;
-                            case 'g':
-                                ui_mutex.lock();
-                                ui->change_requested = true;
-                                ui_mutex.unlock();
-                                break;
-                            case 'q':
-                                printf("Quitting...\n");
-                                exit = true;
-                                cpu->state = QUIT;
-                                break;
-                            case 'c':
-                                dbg.dbg_level = OFF_DBG;
-                                exit = true;
-                                break;
-                            case 'r':
-                                printf("Resetting...\n");
-                                emu_reset(sem);
-                                dbg.debug_print();
-                                
-                                break;
-                            case 'm':
-                                memory->dump();
-                                break;
-                            case 'v':
-                                std::cout<<"[";
-                                for (int i = 0; i < 10; i++){
-                                    std::cout<<numToHexString(dbg.last_pc_values[i], 4)<<" ";
-                                }
-                                std::cout<<"]"<<std::endl;
-                                break;
-                            case 'i':
-                                std::cout<<"Opening VsCode debugger..."<<std::endl; //Place breakpoint here
-                                break;
-                        }
-                    }
-                    
-                    printf("\n");
-                    
+                    debug_menu(sem);
                 }
             }
         }
@@ -166,6 +165,7 @@ void cpu_run(void* thread_args){
     }
     //fclose(log_pc);
 }
+
 int emu_run(int argc, char** argv){
     std::signal(SIGINT, signal_handler);
     ui->set_debugger(&dbg);
@@ -182,7 +182,6 @@ int emu_run(int argc, char** argv){
     dbg.generate_trace_header();
     #endif
     SDL_Init(SDL_INIT_VIDEO);
-    TTF_Init();
     std::binary_semaphore sem = std::binary_semaphore(0);
     Cpu_thread_args thread_args = {&sem};
     pthread_t cpu_thread;
@@ -203,6 +202,7 @@ void run_ticks(int ticks_to_run){
     for(int m = 0; m < ticks_to_run; m++){
         for (int tick = 0; tick < 4; tick++){
             ticks++;
+            ticks_since_last_sync++;
             timer->tick();
             ppu->tick();
         }

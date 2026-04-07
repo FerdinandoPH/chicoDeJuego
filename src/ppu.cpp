@@ -1,4 +1,4 @@
-#include <ppu.h>
+#include "ppu.h"
 
 std::unordered_map<Ppu_mode, std::string> ppu_mode_names = {
     {Ppu_mode::OAM, "OAM"}, {Ppu_mode::TRANSFER, "TRANSFER"}, {Ppu_mode::VBLANK, "VBLANK"}, {Ppu_mode::HBLANK, "HBLANK"}

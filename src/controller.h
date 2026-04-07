@@ -1,10 +1,10 @@
 #pragma once
-#include <utils.h>
+#include "utils.h"
 #include <unordered_map>
 #include <unordered_set>
 #include <mutex>
 #include <deque>
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 class Memory;
 enum class Key{UP, DOWN, LEFT, RIGHT, A, B, START, SELECT};
 enum class Poll_mode{DIRECTION, BUTTON, NONE};
