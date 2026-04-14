@@ -110,9 +110,9 @@ void debug_menu(std::binary_semaphore* sem){
                 exit = true;
                 break;
             case 'r':
-                printf("Resetting...\n");
-                emu_reset(sem);
-                dbg.debug_print();
+                printf("Resetting is dangerous rn...\n");
+                // emu_reset(sem);
+                // dbg.debug_print();
                 
                 break;
             case 'm':

@@ -3,12 +3,11 @@
 #include <cstring>
 #include <cstdio>
 #include <algorithm>
-#include <stdlib.h>
 #include <array>
 #include <sstream>
 #include <iomanip>
 #include <vector>
-#include "sha256.h"
+
 std::unordered_map<MBC_type, std::string> mbc_names = {
     {MBC_type::NONE, "None"},
     {MBC_type::MBC1, "MBC1"},
@@ -29,6 +28,9 @@ Memory::~Memory() {
     if (_rom) {
         free(_rom);
     }
+    if(_ram){
+        free(_ram);
+    }
     #ifdef SERIAL_LOG
     if (serial_log) {
         fclose(serial_log);
@@ -42,9 +44,12 @@ void Memory::write(u16 address, u8 data, bool from_cpu) {
     bool writable = true;
     from_cpu = from_cpu && this->is_protected;
     if (from_cpu){
-        process_MBC_write(address, data);
+        MBC_result mbc_result = process_MBC_write(address, data);
+        if(mbc_result.type == MBC_ret_type::RETURN){
+            return;
+        }
         if(address<0x8000){
-            std::cout<<"Rom write attempt at address: "<<numToHexString(address, 4)<<" and value: "<<numToHexString(data, 2)<<std::endl;
+            //std::cout<<"Rom write attempt at address: "<<numToHexString(address, 4)<<" and value: "<<numToHexString(data, 2)<<std::endl;
             //writable = false;
             return;
         }
@@ -96,8 +101,16 @@ void Memory::write(u16 address, u8 data, bool from_cpu) {
 
 u8 Memory::read(u16 address, bool from_cpu) {
     std::scoped_lock<std::mutex> lock(this->mem_mutex);
+    u8 data = _mem[address];
     from_cpu = from_cpu && this->is_protected;
     if(from_cpu){
+        MBC_result mbc_result = process_MBC_read(address);
+        if(mbc_result.type == MBC_ret_type::RETURN){
+            return mbc_result.data;
+        }
+        if(mbc_result.type == MBC_ret_type::KEEP){
+            data = mbc_result.data;
+        }
         if(dma->transferring && !BETWEEN(address, 0xFF80, 0xFFFE)){ //Only HRAM should be accesible
             std::cout<<"Reading during DMA transfer at address: "<<numToHexString(address, 4)<<std::endl;
             return 0xFF;
@@ -110,8 +123,12 @@ u8 Memory::read(u16 address, bool from_cpu) {
             std::cout<<"Reading from OAM while locked at address: "<<numToHexString(address, 4)<<std::endl;
             return 0xFF;
         }
+        if(_ram_size <=0 && BETWEEN(address, 0xA000, 0xBFFF)){
+            std::cout<<"Reading from non-existent RAM at address: "<<numToHexString(address, 4)<<std::endl;
+            return 0xFF;
+        }
     }
-    return _mem[address];
+    return data;
 }
 
 u8 Memory::readX(u16 address) { 
@@ -126,32 +143,7 @@ void Memory::writeX(u16 address, u16 data) {
 }
 
 
-bool Memory::load_rom(const char* filename) { //Loads the rom to the file (deletes previous rom)
-    std::scoped_lock<std::mutex> lock(this->mem_mutex);
-    FILE* file = fopen(filename, "rb");
-    if (file) {
-        fseek(file, 0, SEEK_END);
-        long size = ftell(file);
-        fseek(file, 0, SEEK_SET);
-        if (_rom) {
-            free(_rom);
-            _rom = nullptr;
-            _rom_size = 0;
-        }
-        _rom = (u8*)malloc(size);
-        _rom_size = static_cast<size_t>(size);
-        fread(_rom, 1, size, file);
-        fclose(file);
-        this->rom_header = (Cart_header*)(_rom + 0x100);
-        this->rom_header->title[15] = 0;
-        memcpy(_mem, _rom, 0x8000);
-        this->mbc_type = static_cast<MBC_type>(this->rom_header->cart_type);
-        printf("MBC type: %s\n", mbc_names[this->mbc_type].c_str());
-        return true;
-    }
-    return false;
 
-}
 
 void Memory::dump() { //Writes the current state of memory into a file and opens it with a HEX editor
     std::scoped_lock<std::mutex> lock(this->mem_mutex);
@@ -227,6 +219,10 @@ void Memory::load_initial_values(){
     _mem[WY_ADDR] = 0x00;
     _mem[WX_ADDR] = 0x00;
     _mem[IE_ADDR] = 0x00;
+
+    current_ram_bank = 0;
+    current_rom0_bank = 0;
+    current_rom1_bank = 1;
 }
 void Memory::set_dma(Dma* dma){
     this->dma = dma;
@@ -239,37 +235,4 @@ void Memory::set_vram_lock(bool locked){
 }
 void Memory::set_oam_lock(bool locked){
     this->oam_locked = locked;
-}
-MBC_result Memory::process_MBC_write(u16 address, u8 data){
-    MBC_result result = {false, 0};
-    switch(this->mbc_type){
-        case MBC_type::MBC1:
-            if (BETWEEN(address, 0x2000, 0x3FFF)){
-                std::cout<<"MBC1 ROM bank switch with data: "<<numToHexString(data, 2)<<std::endl;
-                u16 rom_bank = data & 0x1F;
-                if (rom_bank == 0) rom_bank = 1;
-                memcpy(_mem + 0x4000, _rom + rom_bank*0x4000, 0x4000);
-                return result;
-            }
-            break;
-        default:
-            return result;
-            break;
-    }
-    return result;
-}
-
-Cart_header Memory::get_cart_header(){
-    std::scoped_lock<std::mutex> lock(this->mem_mutex);
-    return this->rom_header ? *this->rom_header : Cart_header{};
-}
-
-std::string Memory::get_sha256() {
-    std::scoped_lock<std::mutex> lock(this->mem_mutex);
-    if (_rom == nullptr || _rom_size == 0) {
-        return "";
-    }
-    char hex_str[SHA256_HEX_SIZE];
-    sha256_hex(_rom, _rom_size, hex_str);
-    return std::string(hex_str);
 }
