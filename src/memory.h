@@ -119,6 +119,7 @@ class Memory {
         Memory();
         ~Memory();
         void dump();
+        void copy_mem(u8* ptr);
         void reset();
         void set_dma(Dma* dma);
         void set_controller(Controller* controller);

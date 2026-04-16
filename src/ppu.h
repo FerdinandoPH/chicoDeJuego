@@ -52,7 +52,6 @@ class Pixel_Fetcher{
         Pixel_FIFO* fifo;
         u16 tile_addr;
         u8 f_scx;
-        u8 f_fine_scx;
         u8 f_scy;
         u8 f_lx;
         u8 f_ly;
@@ -82,6 +81,7 @@ class Pixel_FIFO{
         Ui* ui;
         Sprite (&line_oam)[10];
         int& sprites_in_line;
+        bool debug_me = false;
         Pixel_Fetcher* fetcher;
         u8 lx;
         u8 ly;

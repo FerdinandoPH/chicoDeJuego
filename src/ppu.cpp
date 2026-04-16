@@ -180,6 +180,8 @@ std::string Ppu::toString(){
     str += "LX: "+std::to_string(this->fifo->get_lx())+" ";
     str += "SCX: "+std::to_string((int)this->mem.readX(SCX_ADDR))+" ";
     str += "SCY: "+std::to_string((int)this->mem.readX(SCY_ADDR))+" ";
+    str += "WX: "+std::to_string((int)this->mem.readX(WX_ADDR))+" ";
+    str += "WY: "+std::to_string((int)this->mem.readX(WY_ADDR))+" ";
     return str;
 }
 

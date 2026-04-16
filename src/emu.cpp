@@ -85,8 +85,9 @@ void debug_menu(std::binary_semaphore* sem){
                 printf("h: Help\n");
                 printf("b: Add breakpoint\n");
                 printf("d: Display breakpoints\n");
-                printf("x: Delete breakpoint");
-                printf("g: Enable/disable screen");
+                printf("x: Delete breakpoint\n");
+                printf("g: Toggle debug windows\n");
+                printf("p: Clear main screen\n");
                 printf("s: Step\n");
                 printf("c: Continue\n");
                 printf("r: Reset\n");
@@ -95,10 +96,24 @@ void debug_menu(std::binary_semaphore* sem){
                 printf("v: See last 10 PC values\n");
                 printf("q: Quit\n");
                 break;
-            case 'g':
-                ui_mutex.lock();
-                ui->change_requested = true;
-                ui_mutex.unlock();
+            case 'g': {
+                printf("Toggle debug windows:\n");
+                printf("  1. Tile Viewer  [%s]\n", ui->is_debug_window_active(DebugWindowType::TILES)   ? "ON" : "OFF");
+                printf("  2. BG Map       [%s]\n", ui->is_debug_window_active(DebugWindowType::BG_MAP)  ? "ON" : "OFF");
+                printf("  3. Window Map   [%s]\n", ui->is_debug_window_active(DebugWindowType::WIN_MAP) ? "ON" : "OFF");
+                printf("  4. OAM Sprites  [%s]\n", ui->is_debug_window_active(DebugWindowType::OAM)     ? "ON" : "OFF");
+                printf("  0. Cancel\n");
+                std::string choice;
+                fflush(stdin);
+                std::getline(std::cin, choice);
+                int idx = choice[0] - '1';
+                if (idx >= 0 && idx < NUM_DEBUG_WINDOWS){
+                    ui->debug_toggle_requested[idx] = true;
+                }
+                break;
+            }
+            case 'p':
+                ui->clear_main_screen();
                 break;
             case 'q':
                 printf("Quitting...\n");

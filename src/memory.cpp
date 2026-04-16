@@ -163,6 +163,11 @@ void Memory::dump() { //Writes the current state of memory into a file and opens
     }
 }
 
+void Memory::copy_mem(u8* ptr){
+    std::scoped_lock<std::mutex> lock(this->mem_mutex);
+    memcpy(ptr, _mem, 0x10000);
+}
+
 void Memory::reset(){
     std::scoped_lock<std::mutex> lock(this->mem_mutex);
     memset(_mem, 0, sizeof(_mem));

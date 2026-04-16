@@ -20,12 +20,12 @@ void Pixel_Fetcher::new_line(){
     f_ly++;
     //win ly is set by FIFO
     f_lx = f_win_lx = 0;
-    f_fine_scx = mem.readX(SCX_ADDR) % 8;
     this->state = Pixel_fetcher_state::READ_TILE;
     this->tile_type = Tile_type::BG;
 }
 void Pixel_Fetcher::new_frame(){
     f_ly = 0xFF;
+    f_win_ly = 0;
     this->state = Pixel_fetcher_state::READ_TILE;
     this->tile_type = Tile_type::BG;
 }
@@ -101,8 +101,14 @@ void Pixel_Fetcher::tick(){
                 case Tile_type::WINDOW:{
                     u16 map_addr;
                     map_addr = mem.readX(LCDC_ADDR) & 0x40 ? 0x9C00 : 0x9800; //LCDC bit 6 specifies the Window tile map area
-                    map_addr += (f_win_lx / 8) + (f_win_ly / 8) * 32;
-                    tile_addr = mem.readX(map_addr) * 16 + ((mem.readX(LCDC_ADDR) & 0x10) ? 0x8000 : 0x8800);
+                    map_addr += ((f_win_lx) / 8) + (f_win_ly / 8) * 32;
+                    bool $8800_addressing = !(mem.readX(LCDC_ADDR) & 0x10);
+                    u8 tile_index = mem.readX(map_addr);
+                    if($8800_addressing){
+                        tile_addr = 0x9000 + static_cast<i8>(tile_index) * 16;
+                    }else{
+                        tile_addr = 0x8000 + tile_index * 16;
+                    }
                     break;
                 }
             }
@@ -135,7 +141,8 @@ void Pixel_Fetcher::tick(){
             else if(fifo->is_main_fifo_empty()){
                 fifo->push(fetcher_pixel_buffer);
                 f_lx = fifo->get_lx();
-                f_win_lx = f_lx - fifo->get_triggered_wx();
+                if(this->tile_type == Tile_type::WINDOW)
+                    f_win_lx = f_lx - fifo->get_triggered_wx() + 8;
                 this->state = Pixel_fetcher_state::READ_TILE;
             }
             break;
@@ -157,6 +164,7 @@ void Pixel_FIFO::new_frame(){
     this->ly = 0xFF;
     this->win_ly = 0;
     this->increase_win_ly = false;
+    this->wy_cond = false;
 }
 void Pixel_FIFO::new_line(){
     //Also call after new_frame
@@ -219,6 +227,9 @@ void Pixel_FIFO::push_obj(Pixel* new_pixels){
 void Pixel_FIFO::tick(){
     if(waiting_for_sprite) return;
     if(!window_active && wy_cond && wx_cond && (mem.readX(LCDC_ADDR) & 0x20)){
+        if (debug_me){
+            debug_me = false;
+        }
         window_active = true;
         pixels.clear();
         fetcher->change_to_win();
@@ -258,6 +269,8 @@ void Pixel_FIFO::tick(){
     this->pixels.pop_front();
     if(pixel.tile_type==Tile_type::WINDOW)
         increase_win_ly = true;
+    if (!(mem.readX(LCDC_ADDR) & 1))
+        pixel.color_index = 0;
     if (!obj_pixels.empty()){
         Pixel obj_pixel = obj_pixels.front();
         obj_pixels.pop_front();
@@ -268,7 +281,7 @@ void Pixel_FIFO::tick(){
     if(lx>=8){
         this->ui->write_pixel(this->lx-8, this->ly, get_final_color(pixel));
     }
-    if(lx == this->mem.readX(WX_ADDR)){
+    if(!window_active && lx == this->mem.readX(WX_ADDR)){
         this->wx_cond = true;
         this->triggered_wx = lx;
     }
