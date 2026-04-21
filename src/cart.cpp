@@ -99,6 +99,7 @@ void Memory::load_save(){
     std::string save_filename = _rom_filename.substr(0, _rom_filename.find_last_of('.')) + ".sav";
     FILE* file = fopen(save_filename.c_str(), "rb");
     if (file) {
+        printf("Save file found, loading...\n");
         fread(_ram, 1, _ram_size, file);
         memcpy(_mem + 0xA000, _ram, std::min(_ram_size, static_cast<size_t>(0x2000)));
         fclose(file);
@@ -257,7 +258,7 @@ void Memory::MBC3_handler(MBC_action action, u16 address, u8 data, MBC_result* r
                 if(data<8)
                     change_banks(0, current_rom1_bank, mbc3->ram_banks == 0? 0: data % mbc3->ram_banks);
                 //TODO: RTC registers
-            }else if(mbc3->ext_ram_enabled && BETWEEN(address, 0xA000,0xBFFF)){
+            }else if(!mbc3->ext_ram_enabled && BETWEEN(address, 0xA000,0xBFFF)){
                 result->type = MBC_ret_type::RETURN;
                 result->data = data;
             }
@@ -308,7 +309,7 @@ void Memory::MBC5_handler(MBC_action action, u16 address, u8 data, MBC_result* r
                 MBC5_change_banks();
                 //TODO: rumble
                 
-            }else if(mbc5->ext_ram_enabled && BETWEEN(address, 0xA000,0xBFFF)){
+            }else if(!mbc5->ext_ram_enabled && BETWEEN(address, 0xA000,0xBFFF)){
                 result->type = MBC_ret_type::RETURN;
                 result->data = data;
             }

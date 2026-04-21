@@ -45,6 +45,16 @@ void Ui::create_debug_window(DebugWindowType type){
     SDL_SetTextureScaleMode(dw.texture, SDL_SCALEMODE_NEAREST);
     SDL_SetRenderLogicalPresentation(dw.renderer,
         dw.width, dw.height, SDL_LOGICAL_PRESENTATION_INTEGER_SCALE);
+
+    int main_x, main_y, main_w, main_h;
+    SDL_GetWindowPosition(main_window, &main_x, &main_y);
+    SDL_GetWindowSize(main_window, &main_w, &main_h);
+    int y = main_y;
+    for (int j = 0; j < i; j++)
+        if (debug_windows[j].active)
+            y += debug_windows[j].height * debug_windows[j].scale;
+    SDL_SetWindowPosition(dw.window, main_x + main_w, y);
+
     dw.active = true;
 }
 void Ui::destroy_debug_window(DebugWindowType type){
@@ -236,6 +246,41 @@ void Ui::bg_map_dbg_update(){
         int y = (i / 32) * 9;
         draw_tile(pixel_buf, BG_MAP_DBG_W, tile_addr, x, y, mem_copy[BGP_ADDR]);
     }
+
+    // --- Viewport rectangle ---
+    // The BG map is 256x256 pixels (32x32 tiles). The Game Boy screen is a
+    // 160x144 window into that map, anchored at (SCX, SCY). Since the map
+    // wraps around (it's a torus), the rectangle may cross the right or
+    // bottom edge and reappear on the opposite side.
+    u8 scx = mem_copy[SCX_ADDR];
+    u8 scy = mem_copy[SCY_ADDR];
+    const u32 VIEWPORT_COLOR = 0xFF00AAFF;
+
+    // Convert a GB map coordinate (0-255) to a pixel index in the debug buffer.
+    // The debug window draws each 8-pixel tile as a 9-pixel cell (8 data pixels
+    // + 1 grid pixel), so coordinate `gb` lives at column/row:
+    //     (gb / 8) * 9  -> base of the tile cell
+    //     + (gb % 8)    -> offset inside that tile
+    auto gb_to_dbg = [](int gb){ return (gb / 8) * 9 + (gb % 8); };
+
+    // Top and bottom edges: iterate horizontally across the 160-pixel width.
+    // For each column dx in screen space, the corresponding map X is
+    // (scx + dx) mod 256. The top edge sits at map Y = scy, and the bottom
+    // edge at scy + 143 (also wrapped).
+    for (int dx = 0; dx < XRES; dx++){
+        int bx = gb_to_dbg((scx + dx) % 256);
+        pixel_buf[gb_to_dbg(scy % 256)             * BG_MAP_DBG_W + bx] = VIEWPORT_COLOR; // top
+        pixel_buf[gb_to_dbg((scy + YRES - 1) % 256) * BG_MAP_DBG_W + bx] = VIEWPORT_COLOR; // bottom
+    }
+
+    // Left and right edges: iterate vertically across the 144-pixel height.
+    // Symmetric to the loop above, but swapping the role of X and Y.
+    for (int dy = 0; dy < YRES; dy++){
+        int by = gb_to_dbg((scy + dy) % 256);
+        pixel_buf[by * BG_MAP_DBG_W + gb_to_dbg(scx % 256)]             = VIEWPORT_COLOR; // left
+        pixel_buf[by * BG_MAP_DBG_W + gb_to_dbg((scx + XRES - 1) % 256)] = VIEWPORT_COLOR; // right
+    }
+
     SDL_UpdateTexture(dw.texture, NULL, pixel_buf, BG_MAP_DBG_W * sizeof(u32));
     SDL_RenderClear(dw.renderer);
     SDL_RenderTexture(dw.renderer, dw.texture, NULL, NULL);
@@ -267,6 +312,40 @@ void Ui::win_map_dbg_update(){
 void Ui::oam_dbg_update(){
     DebugWindow& dw = debug_windows[(int)DebugWindowType::OAM];
     if (!dw.active) return;
+
+    u32 pixel_buf[OAM_DBG_W * OAM_DBG_H];
+    std::fill_n(pixel_buf, OAM_DBG_W * OAM_DBG_H, GRID_COLOR);
+
+    bool tall     = mem_copy[LCDC_ADDR] & 0x04;
+    int sprite_h  = tall ? 16 : 8;
+
+    for (int i = 0; i < 40; i++){
+        Sprite spr(&mem_copy[0xFE00 + i * 4]);
+
+        u8 tile_index = spr.tile_index;
+        if (tall) tile_index &= 0xFE;
+        u16 tile_addr = 0x8000 + tile_index * 16;
+        u8 palette    = mem_copy[spr.palette ? OBP1_ADDR : OBP0_ADDR];
+
+        int px = (i % 10) * 9;
+        int py = (i / 10) * 17;
+
+        for (int r = 0; r < sprite_h; r++){
+            int src_row  = spr.y_flip ? (sprite_h - 1 - r) : r;
+            u16 row_addr = tile_addr + src_row * 2;
+            u8 lo = mem_copy[row_addr];
+            u8 hi = mem_copy[row_addr + 1];
+            for (int c = 0; c < 8; c++){
+                int bit      = spr.x_flip ? c : (7 - c);
+                int color_id = (((hi >> bit) & 1) << 1) | ((lo >> bit) & 1);
+                int mapped   = (palette >> (color_id * 2)) & 0x3;
+                pixel_buf[(py + r) * OAM_DBG_W + (px + c)] = gb_palette[mapped];
+            }
+        }
+    }
+
+    SDL_UpdateTexture(dw.texture, NULL, pixel_buf, OAM_DBG_W * sizeof(u32));
     SDL_RenderClear(dw.renderer);
+    SDL_RenderTexture(dw.renderer, dw.texture, NULL, NULL);
     SDL_RenderPresent(dw.renderer);
 }

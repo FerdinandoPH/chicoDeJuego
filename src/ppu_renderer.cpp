@@ -76,7 +76,7 @@ void Pixel_Fetcher::tick(){
                     u8 final_index = spr.tile_index;
                     if (mem.readX(LCDC_ADDR) & 0x4){ // If sprites are 8x16
                         final_index &= 0xFE;
-                        if ((spr_line > 8) ^ spr.y_flip){ // If the sprite is in the second tile, or if it's flipped and the line is in the first tile
+                        if ((spr_line >= 8) ^ spr.y_flip){ // If the sprite is in the second tile, or if it's flipped and the line is in the first tile
                             final_index++;
                         }
                     }

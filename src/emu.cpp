@@ -205,6 +205,7 @@ int emu_run(int argc, char** argv){
     Cpu_thread_args thread_args = {&sem};
     pthread_t cpu_thread;
     pthread_create(&cpu_thread, NULL, cpu_run, &thread_args);
+    ui->debug_toggle_requested[1] = true;
     while(cpu->get_state() != QUIT){
         ui_mutex.lock();
         if(!ui->update())
