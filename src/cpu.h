@@ -14,23 +14,23 @@ enum class Addr_mode{IMPL, IMPL_SHOW, IMM8, IMMe8, IMM16, REG, REG16, REG16_PLUS
 
 enum class Cond{ALWAYS, Z, NZ, C, NC};
 enum class Flag{Z, N, H, C};
-extern std::unordered_map<Cpu_State, std::string> cpu_state_names; //Map of cpu states to their string representation
-extern std::unordered_map<Flag, u16> flag_despl; //Indicates the bit of each flag in F
-extern std::unordered_map<Flag,std::string> flag_names; // Map of flags to their string representation
-extern Flag flag_arr[]; //Array of all flags
-extern int size_flag_arr;
+extern const std::unordered_map<Cpu_State, std::string> cpu_state_names; //Map of cpu states to their string representation
+extern const std::unordered_map<Flag, u16> flag_despl; //Indicates the bit of each flag in F
+extern const std::unordered_map<Flag,std::string> flag_names; // Map of flags to their string representation
+extern const Flag flag_arr[]; //Array of all flags
+extern const int size_flag_arr;
 //typedef enum {REG_A, REG_F, REG_B, REG_C, REG_D, REG_E, REG_H, REG_L, REG_SP, REG_PC, REG_AF, BC, DE, HL} Reg;
 typedef enum {A, F, B, C, D, E, H, L, SP, PC, AF, BC, DE, HL, NO_REG} Reg;
-extern Reg reg_arr[]; //Array of all registers
-extern int size_reg_arr;
-extern Reg composite_regs[]; //Array of all composite registers
-extern int size_composite_regs;
-extern Reg byte_regs[]; //Array of all simple registers
-extern int size_byte_regs;
-extern std::unordered_map<Reg, std::pair<Reg, Reg>> reg_pairs; //Maps a composite register to its two simple registers
-extern std::unordered_map<Reg, std::string> reg_names; //Map of registers to their string representation
-extern std::unordered_map<std::string, Reg> reg_map; //Map of string representation of registers to their enum
-extern std::unordered_map<Cond, std::string> cond_names; //Map of conditions to their string representation
+extern const Reg reg_arr[]; //Array of all registers
+extern const int size_reg_arr;
+extern const Reg composite_regs[]; //Array of all composite registers
+extern const int size_composite_regs;
+extern const Reg byte_regs[]; //Array of all simple registers
+extern const int size_byte_regs;
+extern const std::unordered_map<Reg, std::pair<Reg, Reg>> reg_pairs; //Maps a composite register to its two simple registers
+extern const std::unordered_map<Reg, std::string> reg_names; //Map of registers to their string representation
+extern const std::unordered_map<std::string, Reg> reg_map; //Map of string representation of registers to their enum
+extern const std::unordered_map<Cond, std::string> cond_names; //Map of conditions to their string representation
 
 typedef struct{
     Addr_mode addr_mode = Addr_mode::IMPL;
@@ -68,8 +68,8 @@ class Reg_dict {
                         }
                         parent.regs[reg] = value;
                     } else { //composite
-                        parent.regs[reg_pairs[reg].first] = value >> 8;
-                        parent.regs[reg_pairs[reg].second] = value & (reg == AF ? 0xF0 : 0xFF);
+                        parent.regs[reg_pairs.at(reg).first] = value >> 8;
+                        parent.regs[reg_pairs.at(reg).second] = value & (reg == AF ? 0xF0 : 0xFF);
                     }
                 }
                 Proxy& operator=(u16 value) {
@@ -148,13 +148,13 @@ class Reg_dict {
             return Proxy(*this, reg);
         }
         bool get_flag(Flag flag) {
-            return (regs[F] >> flag_despl[flag]) & 1;
+            return (regs[F] >> flag_despl.at(flag)) & 1;
         }
         void set_flag(Flag flag, bool value) {
             if (value) {
-                regs[F] |= 1 << flag_despl[flag];
+                regs[F] |= 1 << flag_despl.at(flag);
             } else {
-                regs[F] &= ~(1 << flag_despl[flag]);
+                regs[F] &= ~(1 << flag_despl.at(flag));
             }
         }
         static inline bool is_composite_reg(Reg reg) {
@@ -202,6 +202,18 @@ typedef struct{
     u8 IF,IE;
     bool IME;
 }Cpu_trace;
+// Savestate
+typedef struct{
+    u8 a, f, b, c, d, e, h, l;
+    u16 sp, pc;
+}Reg_ss;
+typedef struct{
+    Reg_ss reg;
+    bool IME;
+    u8 IME_pending;
+    Cpu_State state;
+    HALT_SUBSTATE halt_substate;
+}Cpu_ss;
 class Cpu{
     private:
         Cpu_State state = RUNNING;
@@ -215,10 +227,10 @@ class Cpu{
         std::string operand_toString(Operand op);
         std::string instr_toString(Instr instr);
         //static std::map<u8, Instr> instr_map;
-        static Instr instr_table[0x100];
+        static const Instr instr_table[0x100];
         //static std::map<u8, Instr> instr_map_prefix;
-        static Instr instr_table_prefix[0x100];
-        u16 int_addrs[5] = {0x40, 0x48, 0x50, 0x58, 0x60};
+        static const Instr instr_table_prefix[0x100];
+        static const u16 int_addrs[5];
         #ifdef LOGGER
         FILE* log;
         u16 prev_pc = 0xFFFF;
@@ -257,8 +269,6 @@ class Cpu{
         u8 IME_pending;
         HALT_SUBSTATE halt_substate;
         u8 opcode;
-        u16* src;
-        u16* dest;
         Reg_dict regs;
         Cpu(Memory& mem);
         #ifdef LOGGER
@@ -274,8 +284,9 @@ class Cpu{
         void adjust_flag_from_checksum();
 
         std::string toString();
-        
+
         void reset();
         Cpu_trace get_trace();
+        Cpu_ss save_state();
+        void load_state(const Cpu_ss& state);
 };
-

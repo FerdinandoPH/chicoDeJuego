@@ -5,7 +5,7 @@ std::unordered_map<Ppu_mode, std::string> ppu_mode_names = {
 };
 
 
-Ppu::Ppu(Memory& mem, Ui* ui, int scale) : mem(mem), ui(ui), scale(scale) {
+Ppu::Ppu(Memory& mem, Ui* ui) : mem(mem), ui(ui) {
     this->fetcher = new Pixel_Fetcher(mem);
     this->fifo = new Pixel_FIFO(mem, ui, this->line_oam, this->sprites_in_line, this->fetcher);
     this->fetcher->set_fifo(this->fifo);
@@ -194,4 +194,30 @@ Ppu_trace Ppu::get_trace(){
     trace.ly = this->mem.readX(LY_ADDR);
     trace.lyc = this->mem.readX(LYC_ADDR);
     return trace;
+}
+
+Ppu_ss Ppu::save_state() {
+    Ppu_ss state;
+    state.fetcher = this->fetcher->save_state();
+    state.fifo = this->fifo->save_state();
+    memcpy(state.oam, this->oam, sizeof(this->oam));
+    memcpy(state.line_oam, this->line_oam, sizeof(this->line_oam));
+    state.sprites_in_line = this->sprites_in_line;
+    state.is_on = this->is_on;
+    state.startup = this->startup;
+    state.ppu_mode = this->ppu_mode;
+    state.line_ticks = this->line_ticks;
+    return state;
+}
+
+void Ppu::load_state(const Ppu_ss& state) {
+    this->fetcher->load_state(state.fetcher);
+    this->fifo->load_state(state.fifo);
+    memcpy(this->oam, state.oam, sizeof(this->oam));
+    memcpy(this->line_oam, state.line_oam, sizeof(this->line_oam));
+    this->sprites_in_line = state.sprites_in_line;
+    this->is_on = state.is_on;
+    this->startup = state.startup;
+    this->ppu_mode = state.ppu_mode;
+    this->line_ticks = state.line_ticks;
 }

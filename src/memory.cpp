@@ -7,8 +7,8 @@
 #include <sstream>
 #include <iomanip>
 #include <vector>
-
-std::unordered_map<MBC_type, std::string> mbc_names = {
+const std::unordered_set<u16> Memory::write_zero = {DIV_ADDR};
+const std::unordered_map<MBC_type, std::string> mbc_names = {
     {MBC_type::NONE, "None"},
     {MBC_type::MBC1, "MBC1"},
     {MBC_type::MBC2, "MBC2"},
@@ -240,4 +240,73 @@ void Memory::set_vram_lock(bool locked){
 }
 void Memory::set_oam_lock(bool locked){
     this->oam_locked = locked;
+}
+
+Memory_ss Memory::save_state() {
+    std::scoped_lock<std::mutex> lock(this->mem_mutex);
+    Memory_ss state;
+    state.mbc_type = this->mbc_type;
+    state.current_rom0_bank = this->current_rom0_bank;
+    state.current_rom1_bank = this->current_rom1_bank;
+    state.current_ram_bank = this->current_ram_bank;
+
+    memcpy(state.modifiable_mem, this->_mem + 0x8000, sizeof(state.modifiable_mem));
+    state.ram.assign(this->_ram, this->_ram + this->_ram_size);
+    if (this->mbc_state) {
+        switch (this->mbc_type) {
+            case MBC_type::MBC1: {
+                auto* mbc1 = static_cast<MBC1_state*>(this->mbc_state);
+                memcpy(state.mbc_data, mbc1, sizeof(MBC1_state));
+                break;
+            }
+            case MBC_type::MBC3: {
+                auto* mbc3 = static_cast<MBC3_state*>(this->mbc_state);
+                memcpy(state.mbc_data, mbc3, sizeof(MBC3_state));
+                break;
+            }
+            case MBC_type::MBC5: {
+                auto* mbc5 = static_cast<MBC5_state*>(this->mbc_state);
+                memcpy(state.mbc_data, mbc5, sizeof(MBC5_state));
+                break;
+            }
+            default:
+                break;
+        }
+    }
+    return state;
+}
+
+void Memory::load_state(const Memory_ss& state) {
+    std::scoped_lock<std::mutex> lock(this->mem_mutex);
+    this->mbc_type = state.mbc_type;
+    this->change_banks(state.current_rom0_bank, state.current_rom1_bank, state.current_ram_bank, false);
+
+    memcpy(this->_mem + 0x8000, state.modifiable_mem, sizeof(state.modifiable_mem));
+    if (!state.ram.empty()) {
+        memcpy(this->_ram, state.ram.data(), this->_ram_size);
+    }
+    if (this->mbc_state) {
+        delete this->mbc_state;
+        this->mbc_state = nullptr;
+    }
+
+    switch (this->mbc_type) {
+        case MBC_type::MBC1: {
+            this->mbc_state = new MBC1_state();
+            memcpy(this->mbc_state, state.mbc_data, sizeof(MBC1_state));
+            break;
+        }
+        case MBC_type::MBC3: {
+            this->mbc_state = new MBC3_state();
+            memcpy(this->mbc_state, state.mbc_data, sizeof(MBC3_state));
+            break;
+        }
+        case MBC_type::MBC5: {
+            this->mbc_state = new MBC5_state();
+            memcpy(this->mbc_state, state.mbc_data, sizeof(MBC5_state));
+            break;
+        }
+        default:
+            break;
+    }
 }

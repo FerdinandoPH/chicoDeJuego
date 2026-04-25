@@ -24,7 +24,9 @@ struct DebugWindow {
     int scale;
     const char* title;
 };
-
+typedef struct{
+    u32 video_buffer[XRES*YRES];
+}Ui_ss;
 class Ui{
     private:
         Memory& mem;
@@ -34,7 +36,7 @@ class Ui{
         SDL_Window* main_window;
         SDL_Renderer* main_renderer;
         SDL_Texture* main_texture;
-        u32* video_buffer;
+        u32 video_buffer[XRES * YRES];
         DebugWindow debug_windows[NUM_DEBUG_WINDOWS];
         u8 mem_copy[0x10000];
         void create_debug_window(DebugWindowType type);
@@ -56,4 +58,6 @@ class Ui{
         void write_pixel(int x, int y, u32 color);
         void set_debugger(Debugger* dbg);
         void clear_main_screen();
+        Ui_ss save_state();
+        void load_state(const Ui_ss& state);
 };

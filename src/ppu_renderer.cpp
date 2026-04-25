@@ -288,3 +288,77 @@ void Pixel_FIFO::tick(){
     lx++;
     sprites_in_pixel_done = false;
 }
+
+Pixel_Fetcher_ss Pixel_Fetcher::save_state() {
+    Pixel_Fetcher_ss state;
+    state.spr = this->spr;
+    state.spr_line = this->spr_line;
+    state.tile_addr = this->tile_addr;
+    state.f_scx = this->f_scx;
+    state.f_scy = this->f_scy;
+    state.f_lx = this->f_lx;
+    state.f_ly = this->f_ly;
+    state.f_win_lx = this->f_win_lx;
+    state.f_win_ly = this->f_win_ly;
+    state.state = this->state;
+    state.tile_type = this->tile_type;
+    state.tile_type_bak = this->tile_type_bak;
+    state.tile_lo = this->tile_lo;
+    state.tile_hi = this->tile_hi;
+    memcpy(state.fetcher_pixel_buffer, this->fetcher_pixel_buffer, sizeof(this->fetcher_pixel_buffer));
+    return state;
+}
+
+void Pixel_Fetcher::load_state(const Pixel_Fetcher_ss& state) {
+    this->spr = state.spr;
+    this->spr_line = state.spr_line;
+    this->tile_addr = state.tile_addr;
+    this->f_scx = state.f_scx;
+    this->f_scy = state.f_scy;
+    this->f_lx = state.f_lx;
+    this->f_ly = state.f_ly;
+    this->f_win_lx = state.f_win_lx;
+    this->f_win_ly = state.f_win_ly;
+    this->state = state.state;
+    this->tile_type = state.tile_type;
+    this->tile_type_bak = state.tile_type_bak;
+    this->tile_lo = state.tile_lo;
+    this->tile_hi = state.tile_hi;
+    memcpy(this->fetcher_pixel_buffer, state.fetcher_pixel_buffer, sizeof(this->fetcher_pixel_buffer));
+}
+
+Pixel_FIFO_ss Pixel_FIFO::save_state() {
+    Pixel_FIFO_ss state;
+    state.lx = this->lx;
+    state.ly = this->ly;
+    state.triggered_wx = this->triggered_wx;
+    state.win_ly = this->win_ly;
+    state.pixels_to_discard = this->pixels_to_discard;
+    state.increase_win_ly = this->increase_win_ly;
+    state.waiting_for_sprite = this->waiting_for_sprite;
+    state.wx_cond = this->wx_cond;
+    state.wy_cond = this->wy_cond;
+    state.window_active = this->window_active;
+    state.sprites_in_pixel_done = this->sprites_in_pixel_done;
+    state.pixels = this->pixels;
+    state.obj_pixels = this->obj_pixels;
+    state.sprites_in_pixel = this->sprites_in_pixel;
+    return state;
+}
+
+void Pixel_FIFO::load_state(const Pixel_FIFO_ss& state) {
+    this->lx = state.lx;
+    this->ly = state.ly;
+    this->triggered_wx = state.triggered_wx;
+    this->win_ly = state.win_ly;
+    this->pixels_to_discard = state.pixels_to_discard;
+    this->increase_win_ly = state.increase_win_ly;
+    this->waiting_for_sprite = state.waiting_for_sprite;
+    this->wx_cond = state.wx_cond;
+    this->wy_cond = state.wy_cond;
+    this->window_active = state.window_active;
+    this->sprites_in_pixel_done = state.sprites_in_pixel_done;
+    this->pixels = state.pixels;
+    this->obj_pixels = state.obj_pixels;
+    this->sprites_in_pixel = state.sprites_in_pixel;
+}

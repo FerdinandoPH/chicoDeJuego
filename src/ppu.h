@@ -43,7 +43,23 @@ typedef struct{
     Tile_type tile_type;
     bool spr_priority;
 }Pixel;
-
+typedef struct{
+    Sprite spr;
+    int spr_line;
+    u16 tile_addr;
+    u8 f_scx;
+    u8 f_scy;
+    u8 f_lx;
+    u8 f_ly;
+    u8 f_win_lx;
+    u8 f_win_ly;
+    Pixel_fetcher_state state;
+    Tile_type tile_type;
+    Tile_type tile_type_bak;
+    u8 tile_lo;
+    u8 tile_hi;
+    Pixel fetcher_pixel_buffer[8];
+}Pixel_Fetcher_ss;
 class Pixel_Fetcher{
     private:
         Memory& mem;
@@ -74,7 +90,16 @@ class Pixel_Fetcher{
         void change_to_win();
         void new_line();
         void new_frame();
+        Pixel_Fetcher_ss save_state();
+        void load_state(const Pixel_Fetcher_ss& state);
 };
+typedef struct{
+    u8 lx, ly, triggered_wx, win_ly, pixels_to_discard;
+    bool increase_win_ly, waiting_for_sprite, wx_cond, wy_cond, window_active, sprites_in_pixel_done;
+    std::deque<Pixel> pixels;
+    std::deque<Pixel> obj_pixels;
+    std::deque<Sprite> sprites_in_pixel;
+}Pixel_FIFO_ss;
 class Pixel_FIFO{
     private:
         Memory& mem;
@@ -109,19 +134,30 @@ class Pixel_FIFO{
         void push_obj(Pixel* pixels);
         void tick();
         bool is_main_fifo_empty();
+        Pixel_FIFO_ss save_state();
+        void load_state(const Pixel_FIFO_ss& state);
 };
 
 typedef struct{
     u8 lcdc, stat, scy, scx, ly, lyc;
 }Ppu_trace;
+typedef struct{
+    Pixel_Fetcher_ss fetcher;
+    Pixel_FIFO_ss fifo;
+    Sprite oam[40];
+    Sprite line_oam[10];
+    int sprites_in_line;
+    bool is_on, startup;
+    Ppu_mode ppu_mode;
+    int line_ticks;
 
+}Ppu_ss;
 class Ppu{
     private:
         Memory& mem;
         Ui* ui;
         Pixel_Fetcher* fetcher;
         Pixel_FIFO* fifo;
-        int scale;
         bool is_on = true;
         Ppu_mode ppu_mode;
         int line_ticks = 0;
@@ -135,10 +171,11 @@ class Ppu{
         Sprite oam[40];
         Sprite line_oam[10];
         int sprites_in_line;
-        u32* video_buffer = new u32[XRES * YRES];
-        Ppu(Memory& mem, Ui* ui, int scale = 4);
+        Ppu(Memory& mem, Ui* ui);
         void tick();
         void reset();
         std::string toString();
         Ppu_trace get_trace();
+        Ppu_ss save_state();
+        void load_state(const Ppu_ss& state);
 };

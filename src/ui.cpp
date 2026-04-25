@@ -17,7 +17,6 @@ Ui::Ui(Memory& mem, Controller& controller, int scale) :  mem(mem), controller(c
     }
 }
 void Ui::init(){
-    this->video_buffer = new u32[XRES * YRES];
     SDL_CreateWindowAndRenderer("Chico de Juego", XRES*scale, YRES*scale, 0, &this->main_window, &this->main_renderer);
     SDL_SetWindowTitle(this->main_window, "Chico de Juego");
     this->main_texture = SDL_CreateTexture(this->main_renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, XRES, YRES);
@@ -348,4 +347,21 @@ void Ui::oam_dbg_update(){
     SDL_RenderClear(dw.renderer);
     SDL_RenderTexture(dw.renderer, dw.texture, NULL, NULL);
     SDL_RenderPresent(dw.renderer);
+}
+
+Ui_ss Ui::save_state(){
+    Ui_ss state;
+    {
+        std::scoped_lock<std::mutex> lock(video_buffer_mutex);
+        std::copy(std::begin(this->video_buffer), std::end(this->video_buffer), std::begin(state.video_buffer));
+    }
+    return state;
+}
+void Ui::load_state(const Ui_ss& state){
+    std::scoped_lock<std::mutex> lock(video_buffer_mutex);
+    std::copy(std::begin(state.video_buffer), std::end(state.video_buffer), std::begin(this->video_buffer));
+    SDL_UpdateTexture(this->main_texture, NULL, this->video_buffer, XRES * sizeof(u32));
+    SDL_RenderClear(this->main_renderer);
+    SDL_RenderTexture(this->main_renderer, this->main_texture, NULL, NULL);
+    SDL_RenderPresent(this->main_renderer);
 }

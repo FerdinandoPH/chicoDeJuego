@@ -6,9 +6,10 @@
 #include <deque>
 #include <SDL3/SDL.h>
 class Memory;
+class SaveStateManager;
 class Emu_sync;
 enum class Key{UP, DOWN, LEFT, RIGHT, A, B, START, SELECT};
-enum class Extra_key{TURBO};
+enum class Extra_key{TURBO, SAVESTATE, LOADSTATE};
 enum class Poll_mode{DIRECTION, BUTTON, NONE};
 enum class Controller_event_type{KEY_DOWN, KEY_UP};
 typedef struct{
@@ -35,6 +36,7 @@ class Controller {
         };
         std::deque<Input_event> event_queue;
         std::mutex event_queue_mutex;
+        SaveStateManager* save_state_manager;
         void define_keys();
         void key_down(SDL_Scancode key);
         void key_up(SDL_Scancode key);
@@ -45,4 +47,5 @@ class Controller {
         u8 joyp_change(u8 data);
         void enqueue_event(SDL_Scancode key, Controller_event_type type);
         void process_events();
+        void set_save_state_manager(SaveStateManager* manager);
 };

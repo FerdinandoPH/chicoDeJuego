@@ -5,16 +5,16 @@
 #include <iostream>
 #include "utils.h"
 #include <chrono>
-Flag flag_arr[] = {Flag::Z, Flag::N, Flag::H, Flag::C};
-int size_flag_arr = sizeof(flag_arr)/sizeof(flag_arr[0]);
-Reg reg_arr[] = {A, F, B, C, D, E, H, L, AF, BC, DE, HL, SP, PC};
-int size_reg_arr = sizeof(reg_arr)/sizeof(reg_arr[0]);
-Reg composite_regs[] = {AF, BC, DE, HL};
-int size_composite_regs = sizeof(composite_regs)/sizeof(composite_regs[0]);
-Reg byte_regs[] = {A, F, B, C, D, E, H, L};
-int size_byte_regs = sizeof(byte_regs)/sizeof(byte_regs[0]);
-Addr_mode srcs_16bit[] = {Addr_mode::IMM16, Addr_mode::REG16, Addr_mode::REG16_PLUS_IMMe8, Addr_mode:: MEM16_REG};
-int size_srcs_16bit = sizeof(srcs_16bit)/sizeof(srcs_16bit[0]);
+const Flag flag_arr[] = {Flag::Z, Flag::N, Flag::H, Flag::C};
+const int size_flag_arr = sizeof(flag_arr)/sizeof(flag_arr[0]);
+const Reg reg_arr[] = {A, F, B, C, D, E, H, L, AF, BC, DE, HL, SP, PC};
+const int size_reg_arr = sizeof(reg_arr)/sizeof(reg_arr[0]);
+const Reg composite_regs[] = {AF, BC, DE, HL};
+const int size_composite_regs = sizeof(composite_regs)/sizeof(composite_regs[0]);
+const Reg byte_regs[] = {A, F, B, C, D, E, H, L};
+const int size_byte_regs = sizeof(byte_regs)/sizeof(byte_regs[0]);
+const Addr_mode srcs_16bit[] = {Addr_mode::IMM16, Addr_mode::REG16, Addr_mode::REG16_PLUS_IMMe8, Addr_mode:: MEM16_REG};
+const int size_srcs_16bit = sizeof(srcs_16bit)/sizeof(srcs_16bit[0]);
 
 inline bool is_16bit_src(Addr_mode addr_mode){
     switch(addr_mode){
@@ -24,22 +24,23 @@ inline bool is_16bit_src(Addr_mode addr_mode){
             return false;
     }
 }
-std::unordered_map<Reg,std::pair<Reg,Reg>> reg_pairs = {
+const std::unordered_map<Reg,std::pair<Reg,Reg>> reg_pairs = {
     {AF, {A, F}},
     {BC, {B, C}},
     {DE, {D, E}},
     {HL, {H, L}}
 
 };
-std::unordered_map<Cpu_State,std::string> cpu_state_names = {{Cpu_State::RUNNING, "RUNNING"}, {Cpu_State::STOPPED, "STOPPED"}, {Cpu_State::HALTED, "HALTED"}, {Cpu_State::QUIT, "QUIT"}, {Cpu_State::PAUSED, "PAUSED"}};
-std::unordered_map<Flag,u16> flag_despl = {{Flag::Z, 7}, {Flag::N, 6}, {Flag::H, 5}, {Flag::C, 4}};
-std::unordered_map<Flag,std::string> flag_names = {{Flag::Z,"Z"}, {Flag::N, "N"}, {Flag::H,"H"}, {Flag::C, "C"}};
-std::unordered_map<Cond, std::string> cond_names = {{Cond::ALWAYS, ""}, {Cond::NZ, "NZ"}, {Cond::Z, "Z"}, {Cond::NC, "NC"}, {Cond::C, "C"}};
-std::unordered_map<Reg, std::string> reg_names = {{A, "A"}, {F, "F"}, {B, "B"}, {C, "C"}, {D, "D"}, {E, "E"}, {H, "H"}, {L, "L"}, {AF, "AF"}, {BC, "BC"}, {DE, "DE"}, {HL, "HL"}, {SP, "SP"}, {PC, "PC"}};
-std::unordered_map<std::string, Reg> reg_map = {
+const std::unordered_map<Cpu_State,std::string> cpu_state_names = {{Cpu_State::RUNNING, "RUNNING"}, {Cpu_State::STOPPED, "STOPPED"}, {Cpu_State::HALTED, "HALTED"}, {Cpu_State::QUIT, "QUIT"}, {Cpu_State::PAUSED, "PAUSED"}};
+const std::unordered_map<Flag,u16> flag_despl = {{Flag::Z, 7}, {Flag::N, 6}, {Flag::H, 5}, {Flag::C, 4}};
+const std::unordered_map<Flag,std::string> flag_names = {{Flag::Z,"Z"}, {Flag::N, "N"}, {Flag::H,"H"}, {Flag::C, "C"}};
+const std::unordered_map<Cond, std::string> cond_names = {{Cond::ALWAYS, ""}, {Cond::NZ, "NZ"}, {Cond::Z, "Z"}, {Cond::NC, "NC"}, {Cond::C, "C"}};
+const std::unordered_map<Reg, std::string> reg_names = {{A, "A"}, {F, "F"}, {B, "B"}, {C, "C"}, {D, "D"}, {E, "E"}, {H, "H"}, {L, "L"}, {AF, "AF"}, {BC, "BC"}, {DE, "DE"}, {HL, "HL"}, {SP, "SP"}, {PC, "PC"}};
+const std::unordered_map<std::string, Reg> reg_map = {
     {"A", A}, {"F", F}, {"B", B}, {"C", C}, {"D", D}, {"E", E}, {"H", H}, {"L", L}, {"AF", AF}, {"BC", BC}, {"DE", DE}, {"HL", HL}, {"SP", SP}, {"PC", PC}
 };
-Instr Cpu::instr_table[0x100] = {
+const u16 Cpu::int_addrs[5] = {0x40, 0x48, 0x50, 0x58, 0x60};
+const Instr Cpu::instr_table[0x100] = {
     (Instr){(Instr_args){"NOP",0x00}, &Cpu::NOP},
     (Instr){(Instr_args){"LD", 0x01, (Operand){Addr_mode::REG16, BC}, (Operand){Addr_mode::IMM16}}, &Cpu::LD},
     (Instr){(Instr_args){"LD", 0x02, (Operand){Addr_mode::MEM_REG, BC}, (Operand){Addr_mode::REG, A}}, &Cpu::LD},
@@ -298,7 +299,7 @@ Instr Cpu::instr_table[0x100] = {
     (Instr){(Instr_args){"RST", 0xFF, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 0x38}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 1}, &Cpu::JP}
     
 };
-Instr Cpu::instr_table_prefix[0x100] = {
+const Instr Cpu::instr_table_prefix[0x100] = {
     (Instr){(Instr_args){"RLC",0xCB00, (Operand){Addr_mode::REG, B}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 3}, &Cpu::ROT},
     (Instr){(Instr_args){"RLC",0xCB01, (Operand){Addr_mode::REG, C}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 3}, &Cpu::ROT},
     (Instr){(Instr_args){"RLC",0xCB02, (Operand){Addr_mode::REG, D}, (Operand){Addr_mode::IMPL}, Cond::ALWAYS, 3}, &Cpu::ROT},
@@ -847,14 +848,14 @@ std::string Cpu::operand_toString(Operand op){
             str += "$"+numToHexString(op.value, 4);
             break;  
         case Addr_mode::REG: case Addr_mode::REG16:
-            str += reg_names[op.reg];
+            str += reg_names.at(op.reg);
             break;
         case Addr_mode::REG16_PLUS_IMMe8:
             this->fetch_operand(op, false);
-            str += reg_names[op.reg] + " + $" + numToHexString(op.value-this->regs[op.reg], 2, true);
+            str += reg_names.at(op.reg) + " + $" + numToHexString(op.value-this->regs[op.reg], 2, true);
             break;
         case Addr_mode::MEM_REG: case Addr_mode::MEM_REG_INC: case Addr_mode::MEM_REG_DEC:
-            str += "[" + reg_names[op.reg] + (op.addr_mode == Addr_mode::MEM_REG_INC ? "+" : op.addr_mode == Addr_mode::MEM_REG_DEC ? "-" : "") + "]";
+            str += "[" + reg_names.at(op.reg) + (op.addr_mode == Addr_mode::MEM_REG_INC ? "+" : op.addr_mode == Addr_mode::MEM_REG_DEC ? "-" : "") + "]";
             break;
         case Addr_mode::MEM_IMM16:
             str += "[" + numToHexString(this->mem[this->regs[PC]] | (this->mem[this->regs[PC]+1] << 8), 4) + "]";
@@ -864,7 +865,7 @@ std::string Cpu::operand_toString(Operand op){
             str += "[0xFF00 + $" + numToHexString(this->mem[this->regs[PC]], 2) + "]";
             break;
         case Addr_mode::HRAM_PLUS_C:
-            str += "[0xFF00 + " + reg_names[C] + "]";
+            str += "[0xFF00 + " + reg_names.at(C) + "]";
             break;
     }
     return str;
@@ -874,7 +875,7 @@ std::string Cpu::instr_toString(Instr instr){
     Instr_args args = instr.args;
     std::string str = args.name + " ";
     if(args.cond != Cond::ALWAYS)
-        str += cond_names[args.cond] + " ";
+        str += cond_names.at(args.cond) + " ";
     std::string dest_op_str =  this->operand_toString(args.dest);
     str += dest_op_str;
     std::string src_op_str = this->operand_toString(args.src);
@@ -884,15 +885,15 @@ std::string Cpu::instr_toString(Instr instr){
 }
 std::string Cpu::toString(){
     Cpu_State current_state = this->get_state();
-    std::string str = "Cpu state: "+cpu_state_names[current_state];
+    std::string str = "Cpu state: "+cpu_state_names.at(current_state);
     str += "\nIME: " + std::to_string(this->IME);
     str += "\nRegisters:\n";
     for (int i=0; i<(int)(sizeof(reg_arr)/sizeof(reg_arr[0])-2); i++){
-        str += reg_names[reg_arr[i]] + ": " + numToHexString(this->regs[reg_arr[i]], i<8 ? 2 : 4) + " ";
+        str += reg_names.at(reg_arr[i]) + ": " + numToHexString(this->regs[reg_arr[i]], i<8 ? 2 : 4) + " ";
     }
     str+="\nFlags: ";
     for (int i = 0; i < size_flag_arr; i++){
-        str += flag_names[flag_arr[i]] + ":" + std::to_string((u16)this->regs.get_flag(flag_arr[i])) + " ";
+        str += flag_names.at(flag_arr[i]) + ":" + std::to_string((u16)this->regs.get_flag(flag_arr[i])) + " ";
     }
     str += "\nPC: " + numToHexString(this->regs[PC],4) + " SP: " + numToHexString(this->regs[SP],4);
     str+="\n\nInstruction: ";
@@ -1260,4 +1261,40 @@ Cpu_trace Cpu::get_trace(){
     trace.IE = this->mem[0xFFFF];
     trace.IME = this->IME;
     return trace;
+}
+
+Cpu_ss Cpu::save_state() {
+    Cpu_ss state;
+    state.reg.a = this->regs[A];
+    state.reg.f = this->regs[F];
+    state.reg.b = this->regs[B];
+    state.reg.c = this->regs[C];
+    state.reg.d = this->regs[D];
+    state.reg.e = this->regs[E];
+    state.reg.h = this->regs[H];
+    state.reg.l = this->regs[L];
+    state.reg.sp = this->regs[SP];
+    state.reg.pc = this->regs[PC];
+    state.IME = this->IME;
+    state.IME_pending = this->IME_pending;
+    state.state = this->state;
+    state.halt_substate = this->halt_substate;
+    return state;
+}
+
+void Cpu::load_state(const Cpu_ss& state) {
+    this->regs[A] = state.reg.a;
+    this->regs[F] = state.reg.f;
+    this->regs[B] = state.reg.b;
+    this->regs[C] = state.reg.c;
+    this->regs[D] = state.reg.d;
+    this->regs[E] = state.reg.e;
+    this->regs[H] = state.reg.h;
+    this->regs[L] = state.reg.l;
+    this->regs[SP] = state.reg.sp;
+    this->regs[PC] = state.reg.pc;
+    this->IME = state.IME;
+    this->IME_pending = state.IME_pending;
+    this->state = state.state;
+    this->halt_substate = state.halt_substate;
 }

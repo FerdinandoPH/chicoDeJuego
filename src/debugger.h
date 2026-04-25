@@ -27,9 +27,9 @@ typedef struct{
     u16 value2 = 0;
     bool current = false;
 } Reg_breakpoint;
-extern std::unordered_map<std::string, Dbg_cond> dbg_cond_map;
-extern std::unordered_map<Dbg_cond, std::string> dbg_cond_names;
-extern std::unordered_map<u16, std::string> interrupt_names;
+extern const std::unordered_map<std::string, Dbg_cond> dbg_cond_map;
+extern const std::unordered_map<Dbg_cond, std::string> dbg_cond_names;
+extern const std::unordered_map<u16, std::string> interrupt_names;
 class Debugger{
     private:
         int& ticks;

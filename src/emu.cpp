@@ -10,6 +10,7 @@
 #include "dma.h"
 #include "controller.h"
 #include "sync.h"
+#include "savestates.h"
 #include <pthread.h>
 #include <iostream>
 #include <csignal>
@@ -29,10 +30,10 @@ int ticks_since_last_sync = 0;
 Emu_sync* sync_controller = new Emu_sync(ticks, ticks_since_last_sync, controller);
 bool resetting = false;
 Ui* ui = new Ui(*memory, *controller, 4);
-Ppu* ppu = new Ppu(*memory, ui, 4);
+Ppu* ppu = new Ppu(*memory, ui);
 std::mutex ui_mutex = std::mutex();
 Debugger dbg = Debugger(initial_dbg_mode, ticks, *memory, *cpu, *timer, *ppu);
-
+SaveStateManager* ssm = new SaveStateManager(cpu, timer, ppu, memory, dma, ui, ticks, ticks_since_last_sync);
 void signal_handler(int signal){
     if (signal == SIGINT){
         std::signal(SIGINT, signal_handler);
@@ -153,7 +154,7 @@ void* cpu_run(void* thread_args){
     //FILE* log_pc = fopen("chicoDeJuego.emulog", "wb");
     while(cpu->get_state() != QUIT){
         if(cpu->check_interrupts() && (dbg.dbg_level == FULL_DBG || dbg.dbg_level == PRINT_DBG)){
-            printf("%s interrupt triggered\n",interrupt_names[cpu->regs[PC]].c_str());
+            printf("%s interrupt triggered\n",interrupt_names.at(cpu->regs[PC]).c_str());
         }
         if(cpu->get_state() == PAUSED){
             SDL_Delay(10);
@@ -191,11 +192,13 @@ int emu_run(int argc, char** argv){
     memory->set_controller(controller);
     ui->init();
     controller->set_sync_controller(sync_controller);
+    controller->set_save_state_manager(ssm);
     if(argc < 2 || !memory->load_rom(argv[1])){
         printf("Error loading ROM\n");
         return 1;
     }
     printf("ROM loaded: %s\n\n", memory->rom_header->title);
+    ssm->set_filename(std::string(memory->rom_header->title) + ".state");
     cpu->adjust_flag_from_checksum();
     #ifdef TRACEGEN
     dbg.generate_trace_header();
@@ -205,7 +208,7 @@ int emu_run(int argc, char** argv){
     Cpu_thread_args thread_args = {&sem};
     pthread_t cpu_thread;
     pthread_create(&cpu_thread, NULL, cpu_run, &thread_args);
-    ui->debug_toggle_requested[1] = true;
+    ui->debug_toggle_requested[1] = true; //for debug only
     while(cpu->get_state() != QUIT){
         ui_mutex.lock();
         if(!ui->update())

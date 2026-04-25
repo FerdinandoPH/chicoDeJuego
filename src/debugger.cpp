@@ -1,13 +1,13 @@
 #include "debugger.h"
 
 
-std::unordered_map<std::string, Dbg_cond> dbg_cond_map = {
+const std::unordered_map<std::string, Dbg_cond> dbg_cond_map = {
     {"==", Dbg_cond::EQ}, {"!=", Dbg_cond::NEQ}, {">", Dbg_cond::GT}, {"<", Dbg_cond::LT}, {">=", Dbg_cond::GTE}, {"<=", Dbg_cond::LTE}, {"><", Dbg_cond::BET}
 };
-std::unordered_map<Dbg_cond, std::string> dbg_cond_names = {
+const std::unordered_map<Dbg_cond, std::string> dbg_cond_names = {
     {Dbg_cond::EQ, "=="}, {Dbg_cond::NEQ, "!="}, {Dbg_cond::GT, ">"}, {Dbg_cond::LT, "<"}, {Dbg_cond::GTE, ">="}, {Dbg_cond::LTE, "<="}, {Dbg_cond::BET, "><"}
 };
-std::unordered_map<u16, std::string> interrupt_names = {
+const std::unordered_map<u16, std::string> interrupt_names = {
     {0x40, "V-Blank"}, {0x48, "LCD STAT"}, {0x50, "Timer"}, {0x58, "Serial"}, {0x60, "Joypad"}
 };
 Debugger::Debugger(Debug_mode initial_dbg_level, int& ticks, Memory& mem, Cpu& cpu, Timer& timer, Ppu& ppu) : ticks(ticks), mem(mem), cpu(cpu), timer(timer), ppu(ppu){
@@ -75,7 +75,7 @@ bool Debugger::add_mem_breakpoint(std::string addr, std::string cond, std::strin
             bp.value2 = std::stoi(value2, nullptr, 16);
         }
         this->mem_breakpoints.push_back(bp);
-        std::cout<<"Added mem breakpoint at "<<numToHexString(bp.addr, 4)<<" with condition "<<dbg_cond_names[bp.cond]<<" and value "<<numToHexString(bp.value, 2)<<(!value2.empty()?("<->"+numToHexString(bp.value2, 2)):"")<<std::endl;
+        std::cout<<"Added mem breakpoint at "<<numToHexString(bp.addr, 4)<<" with condition "<<dbg_cond_names.at(bp.cond)<<" and value "<<numToHexString(bp.value, 2)<<(!value2.empty()?("<->"+numToHexString(bp.value2, 2)):"")<< std::endl;
         return true;
     }
     catch(...){
@@ -99,7 +99,7 @@ bool Debugger::add_reg_breakpoint(std::string reg, std::string cond, std::string
             bp.value2 = std::stoi(value2, nullptr, 16);
         }
         this->reg_breakpoints.push_back(bp);
-        std::cout<<"Added reg breakpoint at "<<reg_names[bp.reg]<<" with condition "<<dbg_cond_names[bp.cond]<<" and value "<<numToHexString(bp.value)<<(!value2.empty()?("<->"+numToHexString(bp.value2)):"")<<std::endl;
+        std::cout<<"Added reg breakpoint at "<<reg_names.at(bp.reg)<<" with condition "<<dbg_cond_names.at(bp.cond)<<" and value "<<numToHexString(bp.value)<<(!value2.empty()?("<->"+numToHexString(bp.value2)):"")<< std::endl;
         return true;
     }
     catch(...){
@@ -164,7 +164,7 @@ bool Debugger::check_breakpoints(){
     for (auto it = this->mem_breakpoints.begin(); it != this->mem_breakpoints.end(); it++){
         u8 value = this->mem.readX(it->addr);
         if (check_dbg_cond(it->cond, value, it->value, it->value2)){
-            std::cout<<"Reached mem breakpoint at "<<numToHexString(it->addr, 4)<<": "<<numToHexString(it->value, 2)<<" "<<dbg_cond_names[it->cond]<<" "<<numToHexString(value, 2)<<std::endl;
+            std::cout<<"Reached mem breakpoint at "<<numToHexString(it->addr, 4)<<": "<<numToHexString(it->value, 2)<<" "<<dbg_cond_names.at(it->cond)<<" "<<numToHexString(value, 2)<< std::endl;
             if (it->current && it->cond == Dbg_cond::NEQ){
                 it->value = value;
             }
@@ -175,7 +175,7 @@ bool Debugger::check_breakpoints(){
     for (auto it = this->reg_breakpoints.begin(); it != this->reg_breakpoints.end(); it++){
         u16 value = this->cpu.regs[it->reg];
         if (check_dbg_cond(it->cond, value, it->value, it->value2)){
-            std::cout<<"Reached reg breakpoint at "<<reg_names[it->reg]<<": "<<numToHexString(it->value, 2)<<" "<<dbg_cond_names[it->cond]<<" "<<numToHexString(value, 2)<<std::endl;
+            std::cout<<"Reached reg breakpoint at "<<reg_names.at(it->reg)<<": "<<numToHexString(it->value, 2)<<" "<<dbg_cond_names.at(it->cond)<<" "<<numToHexString(value, 2)<< std::endl;
             if (it->current && it->cond == Dbg_cond::NEQ){
                 it->value = value;
             }
@@ -201,13 +201,13 @@ std::string Debugger::breakpoints_toString(){
     index = 1;
     str += "\nMem breakpoints:\n";
     for (auto it = this->mem_breakpoints.begin(); it != this->mem_breakpoints.end(); ++it) {
-        str += std::to_string(index++) + ": " + numToHexString(it->addr, 4) + " " + dbg_cond_names[it->cond] + " " + numToHexString(it->value, 2) + " ";
+        str += std::to_string(index++) + ": " + numToHexString(it->addr, 4) + " " + dbg_cond_names.at(it->cond) + " " + numToHexString(it->value, 2) + " ";
     }
 
     index = 1;
     str += "\nReg breakpoints:\n";
     for (auto it = this->reg_breakpoints.begin(); it != this->reg_breakpoints.end(); ++it) {
-        str += std::to_string(index++) + ": " + reg_names[it->reg] + " " + dbg_cond_names[it->cond] + " " + numToHexString(it->value, 2) + " ";
+        str += std::to_string(index++) + ": " + reg_names.at(it->reg) + " " + dbg_cond_names.at(it->cond) + " " + numToHexString(it->value, 2) + " ";
     }
     return str;
 }

@@ -1,4 +1,5 @@
 #include "timer.h"
+const u16 Timer::clock_table [4] = {256*4, 4*4, 16*4, 64*4}; //All 4 TIMA speeds
 Timer::Timer(Cpu& cpu, Memory& mem) : cpu(cpu), mem(mem) {
     this->reset();
 }
@@ -67,4 +68,24 @@ Timer_trace Timer::get_trace(){
     trace.tma = this->mem.readX(TMA_ADDR);
     trace.tac = this->mem.readX(TAC_ADDR);
     return trace;
+}
+
+Timer_ss Timer::save_state() {
+    Timer_ss state;
+    state.div = this->mem.readX(DIV_ADDR);
+    state.tima = this->mem.readX(TIMA_ADDR);
+    state.tma = this->mem.readX(TMA_ADDR);
+    state.tac = this->mem.readX(TAC_ADDR);
+    state.tima_accumulation = this->tima_accumulation;
+    state.internal_clock = this->internal_clock;
+    return state;
+}
+
+void Timer::load_state(const Timer_ss& state) {
+    this->mem.writeX(DIV_ADDR, state.div);
+    this->mem.writeX(TIMA_ADDR, state.tima);
+    this->mem.writeX(TMA_ADDR, state.tma);
+    this->mem.writeX(TAC_ADDR, state.tac);
+    this->tima_accumulation = state.tima_accumulation;
+    this->internal_clock = state.internal_clock;
 }

@@ -18,11 +18,17 @@ typedef struct{
     u8 tma;
     u8 tac;
 }Timer_trace;
+typedef struct{
+    u8 div, tima, tma, tac;
+    u16 tima_accumulation;
+    int internal_clock;
+} Timer_ss;
+
 class Timer{
     private:
         int internal_clock = 0;
     public:
-        u16 clock_table [4] = {256*4, 4*4, 16*4, 64*4}; //All 4 TIMA speeds
+        static const u16 clock_table [4];
         u16 tima_accumulation = 0;
         Tac_Struct get_tac();
         Cpu& cpu;
@@ -34,4 +40,6 @@ class Timer{
         std::string tac_toString();
         std::string toString();
         Timer_trace get_trace();
+        Timer_ss save_state();
+        void load_state(const Timer_ss& state);
 };

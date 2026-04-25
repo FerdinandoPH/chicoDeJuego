@@ -20,3 +20,19 @@ void Dma::tick(){
         }
     }
 }
+
+Dma_ss Dma::save_state() {
+    Dma_ss state;
+    state.source = this->source;
+    state.dest = this->dest;
+    state.bytes_left = this->bytes_left;
+    state.transferring = this->transferring;
+    return state;
+}
+
+void Dma::load_state(const Dma_ss& state) {
+    this->source = state.source;
+    this->dest = state.dest;
+    this->bytes_left = state.bytes_left;
+    this->transferring = state.transferring;
+}

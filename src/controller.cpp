@@ -1,6 +1,7 @@
 #include "controller.h"
 #include "memory.h"
 #include "sync.h"
+#include "savestates.h"
 
 Controller::Controller(Memory& mem) : mem(mem), event_queue(), event_queue_mutex() {
     this->define_keys();
@@ -30,6 +31,10 @@ void Controller::define_keys(){
 
     this->extra_key_dict[SDL_SCANCODE_SPACE] = Extra_key::TURBO;
     this->extra_sdl_key_set.insert(SDL_SCANCODE_SPACE);
+    this->extra_key_dict[SDL_SCANCODE_F1] = Extra_key::SAVESTATE;
+    this->extra_sdl_key_set.insert(SDL_SCANCODE_F1);
+    this->extra_key_dict[SDL_SCANCODE_F2] = Extra_key::LOADSTATE;
+    this->extra_sdl_key_set.insert(SDL_SCANCODE_F2);
 }
 void Controller::reset(){
     this->poll_mode = Poll_mode::NONE;
@@ -99,6 +104,20 @@ void Controller::key_down(SDL_Scancode sdl_key){
             case Extra_key::TURBO:
                 sync_controller->set_turbo_mode(true);
                 break;
+            case Extra_key::SAVESTATE:
+                if (save_state_manager){
+                    printf("Saving state... ");
+                    save_state_manager->save_state();
+                    printf("Done.\n");
+                }
+                break;
+            case Extra_key::LOADSTATE:
+                if (save_state_manager){
+                    printf("Loading state... ");
+                    save_state_manager->load_state();
+                    printf("Done.\n");
+                }
+                break;
         }
     }
 }
@@ -124,6 +143,12 @@ void Controller::key_up(SDL_Scancode sdl_key){
             case Extra_key::TURBO:
                 sync_controller->set_turbo_mode(false);
                 break;
+            default:
+                break;
         }
     }
+}
+
+void Controller::set_save_state_manager(SaveStateManager* manager){
+    this->save_state_manager = manager;
 }

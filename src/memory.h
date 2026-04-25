@@ -6,6 +6,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <string>
+#include <vector>
 #include "controller.h"
 
 
@@ -23,15 +24,15 @@ typedef struct{
     MBC_ret_type type;
     u8 data;
 } MBC_result;
-extern std::unordered_map<u8,MBC_type> cart_type_to_mbc;
-extern std::unordered_set<u8> cart_with_battery;
-extern std::unordered_set<u8> cart_with_timer;
-extern std::unordered_set<u8> cart_with_rumble;
+extern const std::unordered_map<u8,MBC_type> cart_type_to_mbc;
+extern const std::unordered_set<u8> cart_with_battery;
+extern const std::unordered_set<u8> cart_with_timer;
+extern const std::unordered_set<u8> cart_with_rumble;
 
-extern std::unordered_map<u8,size_t> ram_size_to_bytes;
-extern std::unordered_map<u8,size_t> rom_size_to_number_of_banks;
-extern std::unordered_map<MBC_type, std::string> mbc_names;
-extern std::unordered_map<MBC_type, void (Memory::*)(MBC_action, u16, u8, MBC_result*)> mbc_handlers;
+extern const std::unordered_map<u8,size_t> ram_size_to_bytes;
+extern const std::unordered_map<u8,size_t> rom_size_to_number_of_banks;
+extern const std::unordered_map<MBC_type, std::string> mbc_names;
+extern const std::unordered_map<MBC_type, void (Memory::*)(MBC_action, u16, u8, MBC_result*)> mbc_handlers;
 
 typedef struct{
     u8 entry[4];
@@ -51,29 +52,33 @@ typedef struct{
 
 struct MBC_state{
     virtual ~MBC_state() = default;
-};
-struct MBC1_state: public MBC_state{
     bool ext_ram_enabled = false;
-    bool advanced_banking_mode = false;
     size_t rom_banks = 0;
     size_t ram_banks = 0;
+};
+struct MBC1_state: public MBC_state{
+    bool advanced_banking_mode = false;
     u8 reg_2000_3FFF = 1;
     u8 reg_2000_3FFF_mask= 0b00011111;
     u8 reg_4000_5FFF = 0;
 };
 struct MBC3_state: public MBC_state{
-    bool ext_ram_enabled = false;
-    size_t rom_banks = 0;
-    size_t ram_banks = 0;
+
 };
 struct MBC5_state: public MBC_state{
-    bool ext_ram_enabled = false;
-    size_t rom_banks = 0;
-    size_t ram_banks = 0;
     u8 reg_2000_2FFF = 0;
     u8 reg_3000_3FFF = 0;
     u8 reg_4000_5FFF = 0;
 };
+typedef struct{
+    MBC_type mbc_type;
+    u8 mbc_data[256];
+    size_t current_rom0_bank;
+    size_t current_rom1_bank;
+    size_t current_ram_bank;
+    u8 modifiable_mem[0x10000-0x8000];
+    std::vector<u8> ram;
+}Memory_ss;
 class Memory {
 
     private:
@@ -87,7 +92,7 @@ class Memory {
         size_t _ram_size = 0;
         size_t _ram_bank_size = 8192;
         size_t _rom_size = 0;
-        std::unordered_set<u16> write_zero = {DIV_ADDR};
+        static const std::unordered_set<u16> write_zero;
         class Proxy{
             private:
                 Memory& _memory;
@@ -135,8 +140,10 @@ class Memory {
         std::string get_sha256();
         Cart_header get_cart_header();
         void save_ram();
+        Memory_ss save_state();
+        void load_state(const Memory_ss& state);
         #pragma region MBC_handlers
-            void change_banks(size_t new_rom0_bank, size_t new_rom1_bank, size_t new_ram_bank);
+            void change_banks(size_t new_rom0_bank, size_t new_rom1_bank, size_t new_ram_bank, bool dump_ram = true);
             void MBC1_handler(MBC_action action, u16 address, u8 data, MBC_result* result);
             void MBC1_change_banks();
             void MBC2_handler(MBC_action action, u16 address, u8 data, MBC_result* result);
