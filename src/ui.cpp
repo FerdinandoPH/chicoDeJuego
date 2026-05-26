@@ -1,5 +1,6 @@
 #include "ui.h"
 #include "debugger.h"
+#include <cstdio>
 
 static const struct { int w; int h; int scale; const char* title; } dbg_window_info[NUM_DEBUG_WINDOWS] = {
     { TILE_DBG_W,    TILE_DBG_H,    3, "Tile Viewer"  },
@@ -152,6 +153,7 @@ bool Ui::update() {
     if(!this->handle_events())
         return false;
 
+    this->update_speed_title();
     this->mem.get_mem_ui_copy(this->mem_copy);
     this->main_screen_update();
     this->tiles_dbg_update();
@@ -164,20 +166,23 @@ bool Ui::update() {
 // --- Main screen ---
 void Ui::clear_main_screen(){
     std::scoped_lock<std::mutex> lock(video_buffer_mutex);
-    std::fill_n(this->video_buffer, XRES * YRES, 0xFF000000); // Clear to black
-    SDL_UpdateTexture(this->main_texture, NULL, this->video_buffer, XRES * sizeof(u32));
+    std::fill_n(this->video_buffer_render, XRES * YRES, 0xFF000000); // Clear to black
+    SDL_UpdateTexture(this->main_texture, NULL, this->video_buffer_render, XRES * sizeof(u32));
     SDL_RenderClear(this->main_renderer);
     SDL_RenderTexture(this->main_renderer, this->main_texture, NULL, NULL);
     SDL_RenderPresent(this->main_renderer);
 }
 void Ui::write_pixel(int x, int y, u32 color){
     if (x < 0 || x >= XRES || y < 0 || y >= YRES) return;
+    this->video_buffer_ppu[y * XRES + x] = color;
+}
+void Ui::sync_video_buffer(){
     std::scoped_lock<std::mutex> lock(video_buffer_mutex);
-    this->video_buffer[y * XRES + x] = color;
+    memcpy(this->video_buffer_render, this->video_buffer_ppu, sizeof(this->video_buffer_ppu));
 }
 void Ui::main_screen_update(){
     video_buffer_mutex.lock();
-    SDL_UpdateTexture(this->main_texture, NULL, this->video_buffer, XRES * sizeof(u32));
+    SDL_UpdateTexture(this->main_texture, NULL, this->video_buffer_render, XRES * sizeof(u32));
     video_buffer_mutex.unlock();
     SDL_RenderClear(this->main_renderer);
     SDL_RenderTexture(this->main_renderer, this->main_texture, NULL, NULL);
@@ -186,7 +191,7 @@ void Ui::main_screen_update(){
 
 // --- Debug window update stubs (rendering logic will be added later) ---
 
-void Ui::draw_tile(u32* pixel_buf, int buf_w, u16 tile_addr, int x, int y, u8 palette){
+void Ui::draw_dbg_tile(u32* pixel_buf, int buf_w, u16 tile_addr, int x, int y, u8 palette){
     /*
     draw_tile
     Parameters:
@@ -219,7 +224,7 @@ void Ui::tiles_dbg_update(){
         u16 tile_addr = 0x8000 + tile_idx * 16;
         int x = (tile_idx % 16) * 9;
         int y = (tile_idx / 16) * 9;
-        draw_tile(pixel_buf, TILE_DBG_W, tile_addr, x, y, 0b11100100);
+        draw_dbg_tile(pixel_buf, TILE_DBG_W, tile_addr, x, y, 0b11100100);
     }
 
     SDL_UpdateTexture(dw.texture, NULL, pixel_buf, TILE_DBG_W * sizeof(u32));
@@ -243,7 +248,7 @@ void Ui::bg_map_dbg_update(){
             tile_addr += tile_idx * 16;      // Unsigned index
         int x = (i % 32) * 9;
         int y = (i / 32) * 9;
-        draw_tile(pixel_buf, BG_MAP_DBG_W, tile_addr, x, y, mem_copy[BGP_ADDR]);
+        draw_dbg_tile(pixel_buf, BG_MAP_DBG_W, tile_addr, x, y, mem_copy[BGP_ADDR]);
     }
 
     // --- Viewport rectangle ---
@@ -301,7 +306,7 @@ void Ui::win_map_dbg_update(){
             tile_addr += tile_idx * 16;      // Unsigned index
         int x = (i % 32) * 9;
         int y = (i / 32) * 9;
-        draw_tile(pixel_buf, WIN_MAP_DBG_W, tile_addr, x, y, mem_copy[BGP_ADDR]);
+        draw_dbg_tile(pixel_buf, WIN_MAP_DBG_W, tile_addr, x, y, mem_copy[BGP_ADDR]);
     }
     SDL_UpdateTexture(dw.texture, NULL, pixel_buf, WIN_MAP_DBG_W * sizeof(u32));
     SDL_RenderClear(dw.renderer);
@@ -349,18 +354,37 @@ void Ui::oam_dbg_update(){
     SDL_RenderPresent(dw.renderer);
 }
 
+void Ui::set_speed_percent(int percent){
+    this->pending_speed_percent.store(percent, std::memory_order_relaxed);
+}
+void Ui::clear_speed_percent(){
+    this->pending_speed_percent.store(-1, std::memory_order_relaxed);
+}
+void Ui::update_speed_title(){
+    int p = this->pending_speed_percent.load(std::memory_order_relaxed);
+    if (p == this->shown_speed_percent) return;
+    this->shown_speed_percent = p;
+    if (p < 0){
+        SDL_SetWindowTitle(this->main_window, "Chico de Juego");
+    } else {
+        char title[64];
+        std::snprintf(title, sizeof(title), "Chico de Juego - %d%%", p);
+        SDL_SetWindowTitle(this->main_window, title);
+    }
+}
+
 Ui_ss Ui::save_state(){
     Ui_ss state;
     {
         std::scoped_lock<std::mutex> lock(video_buffer_mutex);
-        std::copy(std::begin(this->video_buffer), std::end(this->video_buffer), std::begin(state.video_buffer));
+        std::copy(std::begin(this->video_buffer_ppu), std::end(this->video_buffer_ppu), std::begin(state.video_buffer));
     }
     return state;
 }
 void Ui::load_state(const Ui_ss& state){
     std::scoped_lock<std::mutex> lock(video_buffer_mutex);
-    std::copy(std::begin(state.video_buffer), std::end(state.video_buffer), std::begin(this->video_buffer));
-    SDL_UpdateTexture(this->main_texture, NULL, this->video_buffer, XRES * sizeof(u32));
+    std::copy(std::begin(state.video_buffer), std::end(state.video_buffer), std::begin(this->video_buffer_ppu));
+    SDL_UpdateTexture(this->main_texture, NULL, this->video_buffer_ppu, XRES * sizeof(u32));
     SDL_RenderClear(this->main_renderer);
     SDL_RenderTexture(this->main_renderer, this->main_texture, NULL, NULL);
     SDL_RenderPresent(this->main_renderer);

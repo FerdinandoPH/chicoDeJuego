@@ -36,7 +36,8 @@ class Ui{
         SDL_Window* main_window;
         SDL_Renderer* main_renderer;
         SDL_Texture* main_texture;
-        u32 video_buffer[XRES * YRES];
+        u32 video_buffer_ppu[XRES * YRES];
+        u32 video_buffer_render[XRES * YRES];
         DebugWindow debug_windows[NUM_DEBUG_WINDOWS];
         u8 mem_copy[0x10000];
         void create_debug_window(DebugWindowType type);
@@ -46,9 +47,12 @@ class Ui{
         void bg_map_dbg_update();
         void win_map_dbg_update();
         void oam_dbg_update();
-        void draw_tile(u32* pixel_buf, int buf_w, u16 tile_addr, int x, int y, u8 palette);
+        void draw_dbg_tile(u32* pixel_buf, int buf_w, u16 tile_addr, int x, int y, u8 palette);
         bool handle_events();
         std::mutex video_buffer_mutex;
+        std::atomic<int> pending_speed_percent{-1}; // -1 = no percentage shown
+        int shown_speed_percent = -2;               // sentinel forces first apply
+        void update_speed_title();
     public:
         std::atomic<bool> debug_toggle_requested[NUM_DEBUG_WINDOWS] = {};
         Ui(Memory& mem, Controller& controller, int scale = 4);
@@ -58,6 +62,9 @@ class Ui{
         void write_pixel(int x, int y, u32 color);
         void set_debugger(Debugger* dbg);
         void clear_main_screen();
+        void set_speed_percent(int percent);
+        void clear_speed_percent();
         Ui_ss save_state();
         void load_state(const Ui_ss& state);
+        void sync_video_buffer();
 };

@@ -63,6 +63,7 @@ void emu_reset(std::binary_semaphore* sem = nullptr){
 }
 void debug_menu(std::binary_semaphore* sem){
     memory->sync_mem_ui_copy();
+    ui->sync_video_buffer();
     bool exit = false;
     while(!exit){
         printf("Enter your command (h for help): ");
@@ -171,7 +172,9 @@ void* cpu_run(void* thread_args){
                 //std::cout<<"Elapsed time: "<<elapsed.count()<<"us"<<std::endl;
                 dbg.debug_print();
                 if(dbg.dbg_level == FULL_DBG){
+                    ui->clear_speed_percent();
                     debug_menu(sem);
+                    sync_controller->reset_speed_window();
                 }
             }
         }
