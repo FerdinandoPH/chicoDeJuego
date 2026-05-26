@@ -152,7 +152,7 @@ bool Ui::update() {
     if(!this->handle_events())
         return false;
 
-    this->mem.copy_mem(this->mem_copy);
+    this->mem.get_mem_ui_copy(this->mem_copy);
     this->main_screen_update();
     this->tiles_dbg_update();
     this->bg_map_dbg_update();

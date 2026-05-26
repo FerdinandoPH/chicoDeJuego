@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <string>
 #include <vector>
+#include <variant>
 #include "controller.h"
 
 
@@ -51,7 +52,6 @@ typedef struct{
 } Cart_header;
 
 struct MBC_state{
-    virtual ~MBC_state() = default;
     bool ext_ram_enabled = false;
     size_t rom_banks = 0;
     size_t ram_banks = 0;
@@ -62,17 +62,23 @@ struct MBC1_state: public MBC_state{
     u8 reg_2000_3FFF_mask= 0b00011111;
     u8 reg_4000_5FFF = 0;
 };
+struct MBC2_state: public MBC_state{
+    u8 mbc2_ram[512];
+};
+enum class MBC3_ram_mode{RAM, RTC};
 struct MBC3_state: public MBC_state{
-
+    MBC3_ram_mode ram_mode = MBC3_ram_mode::RAM;
+        //RTC not implemented yet
 };
 struct MBC5_state: public MBC_state{
     u8 reg_2000_2FFF = 0;
     u8 reg_3000_3FFF = 0;
     u8 reg_4000_5FFF = 0;
 };
+using MBC_state_variant = std::variant<std::monostate, MBC1_state, MBC2_state, MBC3_state, MBC5_state>;
 typedef struct{
     MBC_type mbc_type;
-    u8 mbc_data[256];
+    MBC_state_variant mbc_state;
     size_t current_rom0_bank;
     size_t current_rom1_bank;
     size_t current_ram_bank;
@@ -83,16 +89,17 @@ class Memory {
 
     private:
         MBC_type mbc_type;
-        std::mutex mem_mutex;
+        //std::mutex mem_mutex;
+        std::mutex mem_ui_mutex;
         u8 _mem[0x10000];
+        u8 _mem_copy_for_ui[0x10000];
         std::string _rom_filename;
         u8* _rom = nullptr;
         u8* _ram = nullptr;
-        MBC_state* mbc_state = nullptr;
+        MBC_state_variant mbc_state;
         size_t _ram_size = 0;
         size_t _ram_bank_size = 8192;
         size_t _rom_size = 0;
-        static const std::unordered_set<u16> write_zero;
         class Proxy{
             private:
                 Memory& _memory;
@@ -124,7 +131,8 @@ class Memory {
         Memory();
         ~Memory();
         void dump();
-        void copy_mem(u8* ptr);
+        void get_mem_ui_copy(u8* ptr);
+        void sync_mem_ui_copy();
         void reset();
         void set_dma(Dma* dma);
         void set_controller(Controller* controller);

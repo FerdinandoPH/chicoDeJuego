@@ -27,13 +27,14 @@ Cpu* cpu = new Cpu(*memory);
 Timer* timer = new Timer(*cpu, *memory);
 int ticks = 0;
 int ticks_since_last_sync = 0;
-Emu_sync* sync_controller = new Emu_sync(ticks, ticks_since_last_sync, controller);
+
 bool resetting = false;
 Ui* ui = new Ui(*memory, *controller, 4);
 Ppu* ppu = new Ppu(*memory, ui);
 std::mutex ui_mutex = std::mutex();
 Debugger dbg = Debugger(initial_dbg_mode, ticks, *memory, *cpu, *timer, *ppu);
 SaveStateManager* ssm = new SaveStateManager(cpu, timer, ppu, memory, dma, ui, ticks, ticks_since_last_sync);
+Emu_sync* sync_controller = new Emu_sync(ticks, ticks_since_last_sync, memory, controller, ui);
 void signal_handler(int signal){
     if (signal == SIGINT){
         std::signal(SIGINT, signal_handler);
@@ -61,6 +62,7 @@ void emu_reset(std::binary_semaphore* sem = nullptr){
     dbg.reset();
 }
 void debug_menu(std::binary_semaphore* sem){
+    memory->sync_mem_ui_copy();
     bool exit = false;
     while(!exit){
         printf("Enter your command (h for help): ");
@@ -161,7 +163,7 @@ void* cpu_run(void* thread_args){
             continue;
         }
         #ifdef TRACEGEN
-        dbg.generate_trace();
+            dbg.generate_trace();
         #endif
         if(dbg.dbg_level != NO_DBG){
             dbg.check_breakpoints();
@@ -208,7 +210,7 @@ int emu_run(int argc, char** argv){
     Cpu_thread_args thread_args = {&sem};
     pthread_t cpu_thread;
     pthread_create(&cpu_thread, NULL, cpu_run, &thread_args);
-    ui->debug_toggle_requested[1] = true; //for debug only
+    //ui->debug_toggle_requested[1] = true; //for debug only
     while(cpu->get_state() != QUIT){
         ui_mutex.lock();
         if(!ui->update())

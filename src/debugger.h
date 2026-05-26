@@ -43,7 +43,7 @@ class Debugger{
         std::vector<Reg_breakpoint> reg_breakpoints;
         //std::chrono::time_point<std::chrono::system_clock> last_time;
         #ifdef TRACEGEN
-        FILE* trace_file;
+        FILE* trace_file = nullptr;
         #endif
         static bool check_dbg_cond(Dbg_cond cond, u16 val1, u16 val2, u16 val3);
     public:

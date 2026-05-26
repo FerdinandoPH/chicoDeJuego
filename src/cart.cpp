@@ -53,7 +53,6 @@ MBC_type get_MBC(u8 cart_type){
 }
 bool Memory::load_rom(const char* filename) { //Loads the rom from the file. Also sets up the RAM (with save if applicable) and the header
     _rom_filename = strdup(filename);
-    std::scoped_lock<std::mutex> lock(this->mem_mutex);
     FILE* file = fopen(filename, "rb");
     if (file) {
         fseek(file, 0, SEEK_END);
@@ -100,8 +99,12 @@ void Memory::load_save(){
     FILE* file = fopen(save_filename.c_str(), "rb");
     if (file) {
         printf("Save file found, loading...\n");
-        fread(_ram, 1, _ram_size, file);
-        memcpy(_mem + 0xA000, _ram, std::min(_ram_size, static_cast<size_t>(0x2000)));
+        if (this->mbc_type == MBC_type::MBC2){
+            fread(std::get_if<MBC2_state>(&this->mbc_state)->mbc2_ram, 1, 512, file);
+        }else{
+            fread(_ram, 1, _ram_size, file);
+            memcpy(_mem + 0xA000, _ram, std::min(_ram_size, static_cast<size_t>(0x2000)));
+        }
         fclose(file);
     }
 }
@@ -116,12 +119,10 @@ void Memory::save_ram(){
     }
 }
 Cart_header Memory::get_cart_header(){
-    std::scoped_lock<std::mutex> lock(this->mem_mutex);
     return this->rom_header ? *this->rom_header : Cart_header{};
 }
 
 std::string Memory::get_sha256() {
-    std::scoped_lock<std::mutex> lock(this->mem_mutex);
     if (_rom == nullptr || _rom_size == 0) {
         return "";
     }
@@ -164,8 +165,8 @@ void Memory::change_banks(size_t new_rom0_bank, size_t new_rom1_bank, size_t new
 void Memory::MBC1_handler(MBC_action action, u16 address, u8 data, MBC_result* result){
     switch(action){
         case MBC_action::INIT:{
-            this->mbc_state = new MBC1_state();
-            auto* mbc1 = static_cast<MBC1_state*>(this->mbc_state);
+            this->mbc_state.emplace<MBC1_state>();
+            auto* mbc1 = std::get_if<MBC1_state>(&this->mbc_state);
             mbc1->ext_ram_enabled = false;
             mbc1->advanced_banking_mode = false;
             mbc1->rom_banks = rom_size_to_number_of_banks.at(this->rom_header->rom_size);
@@ -174,11 +175,11 @@ void Memory::MBC1_handler(MBC_action action, u16 address, u8 data, MBC_result* r
             mbc1->reg_2000_3FFF_mask = static_cast<u8>((1 << static_cast<u8>(std::ceil(std::log2(mbc1->rom_banks)))) - 1);
             if (mbc1->reg_2000_3FFF_mask > 0b00011111) mbc1->reg_2000_3FFF_mask = 0b00011111;
             mbc1->reg_4000_5FFF = 0;
-            
+
             break;
         }
         case MBC_action::READ:{
-            auto* mbc1 = static_cast<MBC1_state*>(this->mbc_state);
+            auto* mbc1 = std::get_if<MBC1_state>(&this->mbc_state);
             if(!mbc1->ext_ram_enabled && BETWEEN(address, 0xA000,0xBFFF)){
                 result->type = MBC_ret_type::RETURN;
                 result->data = 0xFF;
@@ -186,13 +187,13 @@ void Memory::MBC1_handler(MBC_action action, u16 address, u8 data, MBC_result* r
             break;
         }
         case MBC_action::WRITE:{
-            auto* mbc1 = static_cast<MBC1_state*>(this->mbc_state);
+            auto* mbc1 = std::get_if<MBC1_state>(&this->mbc_state);
             if(BETWEEN(address, 0x0000, 0x1FFF)){
                 mbc1->ext_ram_enabled = (data & 0xF) == 0xA;
             }else if (BETWEEN(address, 0x2000, 0x3FFF)){
                 data&= 0b00011111;
-                if(data == 0) data = 1;
                 data &= mbc1->reg_2000_3FFF_mask;
+                if(data == 0) data = 1;
                 mbc1->reg_2000_3FFF = data;
                 MBC1_change_banks();
             }else if (BETWEEN(address, 0x4000, 0x5FFF)){
@@ -213,12 +214,12 @@ void Memory::MBC1_handler(MBC_action action, u16 address, u8 data, MBC_result* r
     }
 }
 void Memory::MBC1_change_banks(){
-    auto* mbc1 = static_cast<MBC1_state*>(this->mbc_state);
+    auto* mbc1 = std::get_if<MBC1_state>(&this->mbc_state);
     size_t new_rom0_bank, new_rom1_bank, new_ram_bank;
     if(mbc1->advanced_banking_mode){
         new_rom0_bank= (mbc1->reg_4000_5FFF << 5) % mbc1->rom_banks;
         new_rom1_bank = ((mbc1->reg_4000_5FFF << 5) | mbc1->reg_2000_3FFF) % mbc1->rom_banks;
-        new_ram_bank = mbc1->reg_4000_5FFF;
+        new_ram_bank = mbc1->reg_4000_5FFF % mbc1->ram_banks;
     }else{
         new_rom0_bank = 0;
         new_rom1_bank = ((mbc1->reg_4000_5FFF << 5) | mbc1->reg_2000_3FFF) % mbc1->rom_banks;
@@ -227,20 +228,63 @@ void Memory::MBC1_change_banks(){
     change_banks(new_rom0_bank, new_rom1_bank, new_ram_bank);
 }
 void Memory::MBC2_handler(MBC_action action, u16 address, u8 data, MBC_result* result){
+    switch(action){
+        case MBC_action::INIT:{
+            this->mbc_state.emplace<MBC2_state>();
+            auto* mbc2 = std::get_if<MBC2_state>(&this->mbc_state);
+            mbc2->ext_ram_enabled = false;
+            mbc2->rom_banks = rom_size_to_number_of_banks.at(this->rom_header->rom_size);
+            mbc2->ram_banks = 1;
+            memset(mbc2->mbc2_ram, 0xFF, 512);
+            break;
+        }
+        case MBC_action::READ:{
+            auto* mbc2 = std::get_if<MBC2_state>(&this->mbc_state);
+            if(BETWEEN(address, 0xA000,0xBFFF)){
+                if(!mbc2->ext_ram_enabled){
+                    result->type = MBC_ret_type::RETURN;
+                    result->data = 0xFF;
+                }else{
+                    result->type = MBC_ret_type::RETURN;
+                    result->data = mbc2->mbc2_ram[address & 0x1FF];
+                }
+            }
+            break;
+        }
+        case MBC_action::WRITE:{
+            if(BETWEEN(address, 0x0000, 0x3FFF)){
+                auto* mbc2 = std::get_if<MBC2_state>(&this->mbc_state);
+                if (address & 0x0100){ //ROM
+                    u8 new_rom1_bank = data & 0xF;
+                    if(new_rom1_bank == 0) new_rom1_bank = 1;
+                    change_banks(0, new_rom1_bank, 0);
+                }else{ //RAM
+                    mbc2->ext_ram_enabled = (data & 0xF) == 0xA;
+                }
+            }else if(BETWEEN(address, 0xA000,0xBFFF)){
+                auto* mbc2 = std::get_if<MBC2_state>(&this->mbc_state);
+                if(mbc2->ext_ram_enabled){
+                    mbc2->mbc2_ram[address & 0x1FF] = data & 0xF;
+                    result->type = MBC_ret_type::RETURN;
+                }
+            }
+            break;
+        }
+    }
 }
 void Memory::MBC3_handler(MBC_action action, u16 address, u8 data, MBC_result* result){
     //TODO: Implement MBC3 RTC
     switch(action){
         case MBC_action::INIT:{
-            this->mbc_state = new MBC3_state();
-            auto* mbc3 = static_cast<MBC3_state*>(this->mbc_state);
+            this->mbc_state.emplace<MBC3_state>();
+            auto* mbc3 = std::get_if<MBC3_state>(&this->mbc_state);
             mbc3->ext_ram_enabled = false;
             mbc3->rom_banks = rom_size_to_number_of_banks.at(this->rom_header->rom_size);
             mbc3->ram_banks = ram_size_to_bytes.at(this->rom_header->ram_size) / 0x2000;
             break;
         }
         case MBC_action::READ:{
-            auto* mbc3 = static_cast<MBC3_state*>(this->mbc_state);
+            auto* mbc3 = std::get_if<MBC3_state>(&this->mbc_state);
             if(!mbc3->ext_ram_enabled && BETWEEN(address, 0xA000,0xBFFF)){
                 result->type = MBC_ret_type::RETURN;
                 result->data = 0xFF;
@@ -248,7 +292,7 @@ void Memory::MBC3_handler(MBC_action action, u16 address, u8 data, MBC_result* r
             break;
         }
         case MBC_action::WRITE:{
-            auto* mbc3 = static_cast<MBC3_state*>(this->mbc_state);
+            auto* mbc3 = std::get_if<MBC3_state>(&this->mbc_state);
             if(BETWEEN(address, 0x0000, 0x1FFF)){
                 mbc3->ext_ram_enabled = (data & 0xF) == 0xA;
             }else if(BETWEEN(address, 0x2000, 0x3FFF)){
@@ -256,12 +300,19 @@ void Memory::MBC3_handler(MBC_action action, u16 address, u8 data, MBC_result* r
                 if(new_rom1_bank == 0) new_rom1_bank = 1;
                 change_banks(0, new_rom1_bank % mbc3->rom_banks, current_ram_bank);
             }else if(BETWEEN(address, 0x4000, 0x5FFF)){
-                if(data<8)
+                if(data<8){
+                    mbc3->ram_mode = MBC3_ram_mode::RAM;
                     change_banks(0, current_rom1_bank, mbc3->ram_banks == 0? 0: data % mbc3->ram_banks);
+                }
+                else{
+                    mbc3->ram_mode = MBC3_ram_mode::RTC;
+                }
                 //TODO: RTC registers
-            }else if(!mbc3->ext_ram_enabled && BETWEEN(address, 0xA000,0xBFFF)){
-                result->type = MBC_ret_type::RETURN;
-                result->data = data;
+            }else if(BETWEEN(address, 0xA000,0xBFFF)){
+                if (!mbc3->ext_ram_enabled || mbc3->ram_mode != MBC3_ram_mode::RAM){
+                    result->type = MBC_ret_type::RETURN;
+                    result->data = data;
+                }
             }
 
         }
@@ -270,8 +321,8 @@ void Memory::MBC3_handler(MBC_action action, u16 address, u8 data, MBC_result* r
 void Memory::MBC5_handler(MBC_action action, u16 address, u8 data, MBC_result* result){
     switch(action){
         case MBC_action::INIT:{
-            this->mbc_state = new MBC5_state();
-            auto* mbc5 = static_cast<MBC5_state*>(this->mbc_state);
+            this->mbc_state.emplace<MBC5_state>();
+            auto* mbc5 = std::get_if<MBC5_state>(&this->mbc_state);
             mbc5->ext_ram_enabled = false;
             mbc5->rom_banks = rom_size_to_number_of_banks.at(this->rom_header->rom_size);
             mbc5->ram_banks = ram_size_to_bytes.at(this->rom_header->ram_size) / 0x2000;
@@ -283,7 +334,7 @@ void Memory::MBC5_handler(MBC_action action, u16 address, u8 data, MBC_result* r
             break;
         }
         case MBC_action::READ:{
-            auto* mbc5 = static_cast<MBC5_state*>(this->mbc_state);
+            auto* mbc5 = std::get_if<MBC5_state>(&this->mbc_state);
             if(!mbc5->ext_ram_enabled && BETWEEN(address, 0xA000,0xBFFF)){
                 result->type = MBC_ret_type::RETURN;
                 result->data = 0xFF;
@@ -291,7 +342,7 @@ void Memory::MBC5_handler(MBC_action action, u16 address, u8 data, MBC_result* r
             break;
         }
         case MBC_action::WRITE:{
-            auto* mbc5 = static_cast<MBC5_state*>(this->mbc_state);
+            auto* mbc5 = std::get_if<MBC5_state>(&this->mbc_state);
             if(BETWEEN(address, 0x0000, 0x1FFF)){
                 // if((data & 0xF) == 0xA){
                 //     mbc5->ext_ram_enabled = true;
@@ -320,7 +371,7 @@ void Memory::MBC5_handler(MBC_action action, u16 address, u8 data, MBC_result* r
     }
 }
 void Memory::MBC5_change_banks(){
-    auto* mbc5 = static_cast<MBC5_state*>(this->mbc_state);
+    auto* mbc5 = std::get_if<MBC5_state>(&this->mbc_state);
     size_t new_rom0_bank = 0;
     size_t new_rom1_bank = ((mbc5->reg_3000_3FFF << 8) | mbc5->reg_2000_2FFF) % mbc5->rom_banks;
     size_t new_ram_bank = mbc5->ram_banks == 0 ? 0 : mbc5->reg_4000_5FFF % mbc5->ram_banks;

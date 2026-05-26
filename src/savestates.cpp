@@ -66,7 +66,7 @@ static void read_deque(FILE* f, std::deque<T>& d) {
 
 static void write_memory_ss(FILE* f, const Memory_ss& ss) {
     write_pod(f, ss.mbc_type);
-    write_pod(f, ss.mbc_data);
+    write_pod(f, ss.mbc_state);
     write_pod(f, ss.current_rom0_bank);
     write_pod(f, ss.current_rom1_bank);
     write_pod(f, ss.current_ram_bank);
@@ -76,7 +76,7 @@ static void write_memory_ss(FILE* f, const Memory_ss& ss) {
 
 static void read_memory_ss(FILE* f, Memory_ss& ss) {
     read_pod(f, ss.mbc_type);
-    read_pod(f, ss.mbc_data);
+    read_pod(f, ss.mbc_state);
     read_pod(f, ss.current_rom0_bank);
     read_pod(f, ss.current_rom1_bank);
     read_pod(f, ss.current_ram_bank);

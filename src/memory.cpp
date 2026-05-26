@@ -7,7 +7,6 @@
 #include <sstream>
 #include <iomanip>
 #include <vector>
-const std::unordered_set<u16> Memory::write_zero = {DIV_ADDR};
 const std::unordered_map<MBC_type, std::string> mbc_names = {
     {MBC_type::NONE, "None"},
     {MBC_type::MBC1, "MBC1"},
@@ -20,7 +19,7 @@ const std::unordered_map<MBC_type, std::string> mbc_names = {
     {MBC_type::HuC1, "HuC1"},
     {MBC_type::HuC3, "HuC3"}
 };
-Memory::Memory() : mem_mutex() {
+Memory::Memory() : mem_ui_mutex() {
     memset(_mem, 0, sizeof(_mem));
     this->reset();
 }
@@ -40,7 +39,6 @@ Memory::~Memory() {
 /*When reading/writing to memory from CPU, sometimes some side effects will occur
  *readX and writeX will ignore these side effects*/
 void Memory::write(u16 address, u8 data, bool from_cpu) {
-    std::scoped_lock<std::mutex> lock(this->mem_mutex);
     bool writable = true;
     from_cpu = from_cpu && this->is_protected;
     if (from_cpu){
@@ -68,9 +66,6 @@ void Memory::write(u16 address, u8 data, bool from_cpu) {
             //writable = false;
             return;
         }
-        if (write_zero.find(address) != write_zero.end()){
-            data = 0;
-        }
         else if (address == DMA_ADDR){
             if (data > 0xDF){
                 std::cout<<"Invalid DMA source address: "<<numToHexString(data, 2)<<std::endl;
@@ -88,6 +83,9 @@ void Memory::write(u16 address, u8 data, bool from_cpu) {
             case IF_ADDR:
                 data |= 0xE0;
                 break;
+            case DIV_ADDR:
+                data = 0;
+                break;
         }
         #ifdef SERIAL_LOG
         if(address == 0xFF02 && data == 0x81){
@@ -100,7 +98,6 @@ void Memory::write(u16 address, u8 data, bool from_cpu) {
 }
 
 u8 Memory::read(u16 address, bool from_cpu) {
-    std::scoped_lock<std::mutex> lock(this->mem_mutex);
     u8 data = _mem[address];
     from_cpu = from_cpu && this->is_protected;
     if(from_cpu){
@@ -146,7 +143,6 @@ void Memory::writeX(u16 address, u16 data) {
 
 
 void Memory::dump() { //Writes the current state of memory into a file and opens it with a HEX editor
-    std::scoped_lock<std::mutex> lock(this->mem_mutex);
     FILE* file = fopen("mem.hexd", "wb");
     if (file) {
         size_t writtenData = fwrite(_mem, 1, 0x10000, file);
@@ -163,13 +159,17 @@ void Memory::dump() { //Writes the current state of memory into a file and opens
     }
 }
 
-void Memory::copy_mem(u8* ptr){
-    std::scoped_lock<std::mutex> lock(this->mem_mutex);
-    memcpy(ptr, _mem, 0x10000);
+void Memory::get_mem_ui_copy(u8* ptr){
+    std::scoped_lock<std::mutex> lock(this->mem_ui_mutex);
+    memcpy(ptr, this->_mem_copy_for_ui, 0x10000);
 }
-
+void Memory::sync_mem_ui_copy(){
+    std::scoped_lock<std::mutex> lock(this->mem_ui_mutex);
+    memcpy(this->_mem_copy_for_ui, this->_mem, 0x10000);
+}
 void Memory::reset(){
-    std::scoped_lock<std::mutex> lock(this->mem_mutex);
+    std::scoped_lock<std::mutex> lock(this->mem_ui_mutex);
+    memset(this->_mem_copy_for_ui, 0, sizeof(this->_mem_copy_for_ui));
     memset(_mem, 0, sizeof(_mem));
     if (_rom != NULL)
         memcpy(_mem, _rom, 0x8000);
@@ -243,41 +243,19 @@ void Memory::set_oam_lock(bool locked){
 }
 
 Memory_ss Memory::save_state() {
-    std::scoped_lock<std::mutex> lock(this->mem_mutex);
     Memory_ss state;
     state.mbc_type = this->mbc_type;
+    state.mbc_state = this->mbc_state;
     state.current_rom0_bank = this->current_rom0_bank;
     state.current_rom1_bank = this->current_rom1_bank;
     state.current_ram_bank = this->current_ram_bank;
 
     memcpy(state.modifiable_mem, this->_mem + 0x8000, sizeof(state.modifiable_mem));
     state.ram.assign(this->_ram, this->_ram + this->_ram_size);
-    if (this->mbc_state) {
-        switch (this->mbc_type) {
-            case MBC_type::MBC1: {
-                auto* mbc1 = static_cast<MBC1_state*>(this->mbc_state);
-                memcpy(state.mbc_data, mbc1, sizeof(MBC1_state));
-                break;
-            }
-            case MBC_type::MBC3: {
-                auto* mbc3 = static_cast<MBC3_state*>(this->mbc_state);
-                memcpy(state.mbc_data, mbc3, sizeof(MBC3_state));
-                break;
-            }
-            case MBC_type::MBC5: {
-                auto* mbc5 = static_cast<MBC5_state*>(this->mbc_state);
-                memcpy(state.mbc_data, mbc5, sizeof(MBC5_state));
-                break;
-            }
-            default:
-                break;
-        }
-    }
     return state;
 }
 
 void Memory::load_state(const Memory_ss& state) {
-    std::scoped_lock<std::mutex> lock(this->mem_mutex);
     this->mbc_type = state.mbc_type;
     this->change_banks(state.current_rom0_bank, state.current_rom1_bank, state.current_ram_bank, false);
 
@@ -285,28 +263,5 @@ void Memory::load_state(const Memory_ss& state) {
     if (!state.ram.empty()) {
         memcpy(this->_ram, state.ram.data(), this->_ram_size);
     }
-    if (this->mbc_state) {
-        delete this->mbc_state;
-        this->mbc_state = nullptr;
-    }
-
-    switch (this->mbc_type) {
-        case MBC_type::MBC1: {
-            this->mbc_state = new MBC1_state();
-            memcpy(this->mbc_state, state.mbc_data, sizeof(MBC1_state));
-            break;
-        }
-        case MBC_type::MBC3: {
-            this->mbc_state = new MBC3_state();
-            memcpy(this->mbc_state, state.mbc_data, sizeof(MBC3_state));
-            break;
-        }
-        case MBC_type::MBC5: {
-            this->mbc_state = new MBC5_state();
-            memcpy(this->mbc_state, state.mbc_data, sizeof(MBC5_state));
-            break;
-        }
-        default:
-            break;
-    }
+    this->mbc_state = state.mbc_state;
 }

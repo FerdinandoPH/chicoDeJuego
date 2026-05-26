@@ -132,10 +132,13 @@ void Ppu::change_mode(Ppu_mode mode){
                 this->fetcher->new_frame();
                 this->fifo->new_frame();
             }
-            this->fetcher->new_line();
-            this->fifo->new_line();
+            if (this->mem.readX(LCD_STAT_ADDR) & 0x20){ //If stat's OAM interrupt is enabled
+                this->mem.writeX(IF_ADDR, (u8)(this->mem.readX(IF_ADDR) | 0x2));
+            }
             break;
         case Ppu_mode::TRANSFER:
+            this->fetcher->new_line();
+            this->fifo->new_line();
             mem.set_vram_lock(true);
             lcd_stat |= 3;
             break;
@@ -143,6 +146,9 @@ void Ppu::change_mode(Ppu_mode mode){
             mem.set_vram_lock(false);
             mem.set_oam_lock(false);
             lcd_stat |= 0;
+            if(this->mem.readX(LCD_STAT_ADDR) & 0x8){ //If stat's Hblank interrupt is enabled
+                this->mem.writeX(IF_ADDR, (u8)(this->mem.readX(IF_ADDR) | 0x2));
+            }
             break;
         case Ppu_mode::VBLANK:
             mem.set_vram_lock(false);

@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <string>
 #include <mutex>
+#include <atomic>
 typedef enum {RUNNING, PAUSED, STOPPED, HALTED, QUIT} Cpu_State;
 
 class Memory;
@@ -20,7 +21,7 @@ extern const std::unordered_map<Flag,std::string> flag_names; // Map of flags to
 extern const Flag flag_arr[]; //Array of all flags
 extern const int size_flag_arr;
 //typedef enum {REG_A, REG_F, REG_B, REG_C, REG_D, REG_E, REG_H, REG_L, REG_SP, REG_PC, REG_AF, BC, DE, HL} Reg;
-typedef enum {A, F, B, C, D, E, H, L, SP, PC, AF, BC, DE, HL, NO_REG} Reg;
+typedef enum {A=0, F=1, B=2, C=3, D=4, E=5, H=6, L=7, SP=8, PC=9, AF=10, BC=11, DE=12, HL=13, NO_REG=14} Reg;
 extern const Reg reg_arr[]; //Array of all registers
 extern const int size_reg_arr;
 extern const Reg composite_regs[]; //Array of all composite registers
@@ -44,7 +45,9 @@ class Reg_dict {
      *It also allows easy access and modification of flags in the F register.
      */
     private:
-        std::unordered_map<Reg, u16> regs;
+        u8 r8[8];
+        u16 sp = 0;
+        u16 pc = 0;
 
         class Proxy { //This allows to customize the functionality of the [], = and various operators for the Reg_dict class
             private:
@@ -53,23 +56,33 @@ class Reg_dict {
             public:
                 Proxy(Reg_dict& parent, Reg reg) : parent(parent), reg(reg) {}
 
-                operator u16() const { // Reading value (either simple or composite)
-                    if (!is_composite_reg(reg)) { //simple
-                        return parent.regs.at(reg);
-                    } else { //composite
-                        u16 composite_value = (static_cast<u16>(parent.regs.at(reg_pairs.at(reg).first)) << 8) | parent.regs.at(reg_pairs.at(reg).second);
-                        return composite_value;
+                operator u16() const {
+                    switch (reg) {
+                        case A: case F: case B: case C:
+                        case D: case E: case H: case L:
+                            return parent.r8[reg];
+                        case SP: return parent.sp;
+                        case PC: return parent.pc;
+                        case AF: return (u16(parent.r8[A]) << 8) | parent.r8[F];
+                        case BC: return (u16(parent.r8[B]) << 8) | parent.r8[C];
+                        case DE: return (u16(parent.r8[D]) << 8) | parent.r8[E];
+                        case HL: return (u16(parent.r8[H]) << 8) | parent.r8[L];
+                        default: return 0;
                     }
                 }
                 void set(u16 value) { //Baseline for assigning a value to a register
-                    if (!is_composite_reg(reg)) { //simple
-                        if (is_byte_reg(reg)) { //8 bit simple (excluding PC and SP)
-                            value &= reg == F ? 0xF0 : 0xFF;
-                        }
-                        parent.regs[reg] = value;
-                    } else { //composite
-                        parent.regs[reg_pairs.at(reg).first] = value >> 8;
-                        parent.regs[reg_pairs.at(reg).second] = value & (reg == AF ? 0xF0 : 0xFF);
+                    switch (reg) {
+                        case F: parent.r8[F] = value & 0xF0; break;
+                        case A: case B: case C: case D:
+                        case E: case H: case L:
+                            parent.r8[reg] = value & 0xFF; break;
+                        case SP: parent.sp = value; break;
+                        case PC: parent.pc = value; break;
+                        case AF: parent.r8[A] = value >> 8; parent.r8[F] = value & 0xF0; break;
+                        case BC: parent.r8[B] = value >> 8; parent.r8[C] = value & 0xFF; break;
+                        case DE: parent.r8[D] = value >> 8; parent.r8[E] = value & 0xFF; break;
+                        case HL: parent.r8[H] = value >> 8; parent.r8[L] = value & 0xFF; break;
+                        default: break;
                     }
                 }
                 Proxy& operator=(u16 value) {
@@ -139,8 +152,10 @@ class Reg_dict {
 
     public:
         Reg_dict() {
-            for (int i = 0; i < size_reg_arr; i++) {
-                regs[reg_arr[i]] = 0;
+            for (int i = 0; i < 8; i++) {
+                r8[i] = 0;
+                pc = 0;
+                sp = 0;
             }
         }
 
@@ -148,13 +163,13 @@ class Reg_dict {
             return Proxy(*this, reg);
         }
         bool get_flag(Flag flag) {
-            return (regs[F] >> flag_despl.at(flag)) & 1;
+            return (r8[F] >> flag_despl.at(flag)) & 1;
         }
         void set_flag(Flag flag, bool value) {
             if (value) {
-                regs[F] |= 1 << flag_despl.at(flag);
+                r8[F] |= 1 << flag_despl.at(flag);
             } else {
-                regs[F] &= ~(1 << flag_despl.at(flag));
+                r8[F] &= ~(1 << flag_despl.at(flag));
             }
         }
         static inline bool is_composite_reg(Reg reg) {
@@ -216,9 +231,8 @@ typedef struct{
 }Cpu_ss;
 class Cpu{
     private:
-        Cpu_State state = RUNNING;
+        std::atomic<Cpu_State> state{RUNNING};
         Memory& mem;
-        std::mutex cpu_state_mutex;
         void fetch_operand(Operand& op, bool affect=true);
         void write_to_operand_8bit(Operand &op, u16 value, Addr_mode src_addr);
         void write_to_operand_16bit(Operand &op, u16 value, Addr_mode src_addr);

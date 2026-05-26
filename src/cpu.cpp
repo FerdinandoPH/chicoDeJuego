@@ -556,7 +556,7 @@ const Instr Cpu::instr_table_prefix[0x100] = {
     (Instr){(Instr_args){"SET",0xCBFD, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::SET},
     (Instr){(Instr_args){"SET",0xCBFE, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::SET},
     (Instr){(Instr_args){"SET",0xCBFF, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::SET}};
-Cpu::Cpu(Memory& memory): mem(memory), cpu_state_mutex(){
+Cpu::Cpu(Memory& memory): mem(memory){
     this->reset();
 }
 
@@ -601,16 +601,18 @@ void Cpu::set_IF(u16 value){
     this->mem[0xFF0F] = static_cast<u8>(value);
 }
 Cpu_State Cpu::get_state(){
-    std::scoped_lock lock(this->cpu_state_mutex);
-    return this->state;
+    return this->state.load(std::memory_order_acquire);
 }
 bool Cpu::set_state(Cpu_State new_state){
-    std::scoped_lock lock(this->cpu_state_mutex);
-    if (this->state == QUIT){
-        return false;
+    Cpu_State current = this->state.load(std::memory_order_acquire);
+    while (current != QUIT){
+        if (this->state.compare_exchange_weak(current, new_state,
+                                              std::memory_order_acq_rel,
+                                              std::memory_order_acquire)){
+            return true;
+        }
     }
-    this->state = new_state;
-    return true;
+    return false;
 }
 bool Cpu::check_interrupts(){ //Checks if there are any interrupts to handle. If there are, it handles them
     if (this->IME || this->get_state() == HALTED){
@@ -641,22 +643,22 @@ bool Cpu::step(){
     }
     #endif
     if(this->get_state() == RUNNING){
-        Instr curr_instr;
+        const Instr* curr_instr;
         this->opcode = this->mem[this->regs[PC]]; //Fetches the opcode
         if (this->opcode != 0xCB){
-            curr_instr = Cpu::instr_table[this->opcode]; //Gets the instruction from the opcode
+            curr_instr = &Cpu::instr_table[this->opcode]; //Gets the instruction from the opcode
         }
         else{ //Handles prefix instructions
             this->regs[PC]++;
             run_ticks(1);
             this->opcode = this->mem[this->regs[PC]];
-            curr_instr = Cpu::instr_table_prefix[this->opcode];
+            curr_instr = &Cpu::instr_table_prefix[this->opcode];
         }
         //auto get_instr_time = std::chrono::high_resolution_clock::now();
         this->regs[PC]++; // PC should be +1 before executing the operation
         run_ticks(1); //Fetch time
         //auto tick_time = std::chrono::high_resolution_clock::now();
-        (this->*(curr_instr.execute))(curr_instr.args); //Run appropiate function for the operation, with the adequate args
+        (this->*(curr_instr->execute))(curr_instr->args); //Run appropiate function for the operation, with the adequate args
         //auto exec_time = std::chrono::high_resolution_clock::now();
         //std::cout<<"fetch time: "<<std::chrono::duration_cast<std::chrono::microseconds>(get_instr_time - start_time).count()<<std::endl;
         //std::cout<<"tick time: "<<std::chrono::duration_cast<std::chrono::microseconds>(tick_time - get_instr_time).count()<<std::endl;
@@ -1257,8 +1259,8 @@ Cpu_trace Cpu::get_trace(){
     trace.e = this->regs[E];
     trace.h = this->regs[H];
     trace.l = this->regs[L];
-    trace.IF = this->mem[0xFF0F];
-    trace.IE = this->mem[0xFFFF];
+    trace.IF = this->mem.readX(0xFF0F);
+    trace.IE = this->mem.readX(0xFFFF);
     trace.IME = this->IME;
     return trace;
 }
@@ -1277,7 +1279,7 @@ Cpu_ss Cpu::save_state() {
     state.reg.pc = this->regs[PC];
     state.IME = this->IME;
     state.IME_pending = this->IME_pending;
-    state.state = this->state;
+    state.state = this->state.load(std::memory_order_acquire);
     state.halt_substate = this->halt_substate;
     return state;
 }
@@ -1295,6 +1297,6 @@ void Cpu::load_state(const Cpu_ss& state) {
     this->regs[PC] = state.reg.pc;
     this->IME = state.IME;
     this->IME_pending = state.IME_pending;
-    this->state = state.state;
+    this->state.store(state.state, std::memory_order_release);
     this->halt_substate = state.halt_substate;
 }

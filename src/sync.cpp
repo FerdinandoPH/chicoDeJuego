@@ -1,12 +1,15 @@
 #include "sync.h"
 #include "controller.h"
+#include "memory.h"
+#include "ui.h"
 #include <SDL3/SDL.h>
-Emu_sync::Emu_sync(int& ticks, int& ticks_since_last_sync, Controller* controller) : ticks(ticks), ticks_since_last_sync(ticks_since_last_sync), controller(controller) {
+Emu_sync::Emu_sync(int& ticks, int& ticks_since_last_sync, Memory* mem, Controller* controller, Ui* ui) : ticks(ticks), ticks_since_last_sync(ticks_since_last_sync), mem(mem), controller(controller), ui(ui) {
     this->last_time = std::chrono::high_resolution_clock::now();
 }
 
 void Emu_sync::sync(){
     ticks_since_last_sync = 0;
+    mem->sync_mem_ui_copy();
     controller->process_events();
     if(this->turbo_mode){
         return;
