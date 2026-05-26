@@ -168,6 +168,7 @@ class Ppu{
         void load_line_oam();
         void check_lyc_at_restart();
     public:
+        bool vblank_triggered = false;
         Sprite oam[40];
         Sprite line_oam[10];
         int sprites_in_line;

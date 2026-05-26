@@ -155,6 +155,7 @@ void Ppu::change_mode(Ppu_mode mode){
             mem.set_oam_lock(false);
             lcd_stat |= 1;
             this->mem.writeX(0xFF0F, (u8)(this->mem.readX(0xFF0F) | 0x1)); //Vblank IF
+            this->vblank_triggered = true;
             if(this->mem.readX(LCD_STAT_ADDR) & 0x10){ //If stat's Vblank interrupt is enabled
                 this->mem.writeX(0xFF0F, (u8)(this->mem.readX(0xFF0F) | 0x2));
             }

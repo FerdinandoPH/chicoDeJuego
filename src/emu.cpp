@@ -180,7 +180,8 @@ void* cpu_run(void* thread_args){
         }
         //dbg.start_chrono();
         cpu->step();
-        if(ticks_since_last_sync >= 70224){ //Sync every 70224 ticks (1 frame)
+        if(ppu->vblank_triggered){ //Sync on each VBlank
+            ppu->vblank_triggered = false;
             sync_controller->sync();
         }
         //elapsed = dbg.get_chrono();
