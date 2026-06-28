@@ -1,5 +1,8 @@
 #include "memory.h"
 #include "utils.h"
+#include "dma.h"
+#include "controller.h"
+#include "apu.h"
 #include <cstring>
 #include <cstdio>
 #include <algorithm>
@@ -66,14 +69,18 @@ void Memory::write(u16 address, u8 data, bool from_cpu) {
             //writable = false;
             return;
         }
-        else if (address == DMA_ADDR){
-            if (data > 0xDF){
-                std::cout<<"Invalid DMA source address: "<<numToHexString(data, 2)<<std::endl;
-                data = 0xDF;
-            }
-            this->dma->start(static_cast<u16>(data)*0x100, 0xFE00, 0xA0);
+        if(BETWEEN(address, 0xFF10, 0xFF26) || BETWEEN(address, 0xFF30, 0xFF3F)){
+            data = apu->write(address, data);
         }
         switch(address){
+            case DMA_ADDR:{
+                if (data > 0xDF){
+                    std::cout<<"Invalid DMA source address: "<<numToHexString(data, 2)<<std::endl;
+                    data = 0xDF;
+                }
+                this->dma->start(static_cast<u16>(data)*0x100, 0xFE00, 0xA0);
+                break;
+            }
             case JOYP_ADDR:
                 data = controller->joyp_change(data);
                 break;
@@ -234,6 +241,9 @@ void Memory::set_dma(Dma* dma){
 }
 void Memory::set_controller(Controller* controller){
     this->controller = controller;
+}
+void Memory::set_apu(Apu* apu){
+    this->apu = apu;
 }
 void Memory::set_vram_lock(bool locked){
     this->vram_locked = locked;

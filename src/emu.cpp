@@ -8,6 +8,7 @@
 #include "ui.h"
 #include "ppu.h"
 #include "dma.h"
+#include "apu.h"
 #include "controller.h"
 #include "sync.h"
 #include "savestates.h"
@@ -30,6 +31,7 @@ int ticks_since_last_sync = 0;
 
 bool resetting = false;
 Ui* ui = new Ui(*memory, *controller, 4);
+Apu* apu = new Apu(*memory, *ui);
 Ppu* ppu = new Ppu(*memory, ui);
 std::mutex ui_mutex = std::mutex();
 Debugger dbg = Debugger(initial_dbg_mode, ticks, *memory, *cpu, *timer, *ppu);
@@ -160,7 +162,6 @@ void* cpu_run(void* thread_args){
             printf("%s interrupt triggered\n",interrupt_names.at(cpu->regs[PC]).c_str());
         }
         if(cpu->get_state() == PAUSED){
-            SDL_Delay(10);
             continue;
         }
         #ifdef TRACEGEN
@@ -180,8 +181,9 @@ void* cpu_run(void* thread_args){
         }
         //dbg.start_chrono();
         cpu->step();
-        if(ppu->vblank_triggered){ //Sync on each VBlank
-            ppu->vblank_triggered = false;
+        if(ticks_since_last_sync >=70224 && (ppu->vblank_triggered || !ppu->is_enabled())){ //Sync on each VBlank
+            if (ppu->vblank_triggered)
+                ppu->vblank_triggered = false;
             sync_controller->sync();
         }
         //elapsed = dbg.get_chrono();
@@ -196,6 +198,7 @@ int emu_run(int argc, char** argv){
     ui->set_debugger(&dbg);
     memory->set_dma(dma);
     memory->set_controller(controller);
+    memory->set_apu(apu);
     ui->init();
     controller->set_sync_controller(sync_controller);
     controller->set_save_state_manager(ssm);
@@ -209,7 +212,6 @@ int emu_run(int argc, char** argv){
     #ifdef TRACEGEN
     dbg.generate_trace_header();
     #endif
-    SDL_Init(SDL_INIT_VIDEO);
     std::binary_semaphore sem = std::binary_semaphore(0);
     Cpu_thread_args thread_args = {&sem};
     pthread_t cpu_thread;
@@ -226,6 +228,7 @@ int emu_run(int argc, char** argv){
         }
     }
     pthread_join(cpu_thread, nullptr);
+    memory->save_ram();
     return 0;
 }
 void run_ticks(int ticks_to_run){
@@ -235,6 +238,7 @@ void run_ticks(int ticks_to_run){
             ticks_since_last_sync++;
             timer->tick();
             ppu->tick();
+            apu->tick();
         }
         dma->tick();
     }

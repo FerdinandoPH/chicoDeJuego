@@ -27,15 +27,25 @@ void Emu_sync::sync(){
         this->last_title_time = now_title;
     }
 
+    // Now, delay to synchronize with real time (using audio as a reference)
+    int bytes_queued = ui->get_audio_queue_size();
     if(this->turbo_mode){
-        return;
+        if (bytes_queued > audio_bytes_per_sec / 30){
+            ui->clear_audio_queue();
+        }
+        //return;
     }
-    auto current_time = std::chrono::high_resolution_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(current_time - this->last_time).count();
-    //En la game boy real, 1 frame = 16.74 ms = 16740000 ns. Si pasa menos, delay_precise
-    if (elapsed < 16740000){
-        SDL_DelayPrecise(16740000 - elapsed);
+    if (bytes_queued > target_bytes){
+        double excess = (bytes_queued - target_bytes) / (double)audio_bytes_per_sec;
+        ui->delay((int)(excess * 1e6));
     }
+    // Old approach with chrono
+    // auto current_time = std::chrono::high_resolution_clock::now();
+    // auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(current_time - this->last_time).count();
+    // //En la game boy real, 1 frame = 16.74 ms = 16740000 ns. Si pasa menos, delay_precise
+    // if (elapsed < 16740000){
+    //     SDL_DelayPrecise(16740000 - elapsed);
+    // }
     this->last_time = std::chrono::high_resolution_clock::now();
 }
 void Emu_sync::set_turbo_mode(bool enabled){

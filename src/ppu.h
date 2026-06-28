@@ -158,7 +158,7 @@ class Ppu{
         Ui* ui;
         Pixel_Fetcher* fetcher;
         Pixel_FIFO* fifo;
-        bool is_on = true;
+        bool enabled = true;
         Ppu_mode ppu_mode;
         int line_ticks = 0;
         bool startup = true;
@@ -179,4 +179,5 @@ class Ppu{
         Ppu_trace get_trace();
         Ppu_ss save_state();
         void load_state(const Ppu_ss& state);
+        bool is_enabled() { return this->enabled; }
 };

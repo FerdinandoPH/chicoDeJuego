@@ -2,14 +2,16 @@
 #include <cstdint>
 #include "utils.h"
 #include <mutex>
-#include "dma.h"
 #include <unordered_set>
 #include <unordered_map>
 #include <string>
 #include <vector>
 #include <variant>
-#include "controller.h"
 
+class Memory;
+class Controller;
+class Dma;
+class Apu;
 
 //#define SERIAL_LOG
 enum class MBC_type{NONE, MBC1, MBC2, MBC3, MBC5, MBC6, MBC7, MMM01, CAMERA, TAMA5, HuC1, HuC3};
@@ -85,6 +87,7 @@ typedef struct{
     u8 modifiable_mem[0x10000-0x8000];
     std::vector<u8> ram;
 }Memory_ss;
+
 class Memory {
 
     private:
@@ -119,6 +122,7 @@ class Memory {
         //u8 process_mbc_read(u16 address);
         Dma* dma;
         Controller* controller;
+        Apu* apu;
         bool vram_locked = false;
         bool oam_locked = false;
         #ifdef SERIAL_LOG
@@ -136,6 +140,7 @@ class Memory {
         void reset();
         void set_dma(Dma* dma);
         void set_controller(Controller* controller);
+        void set_apu(Apu* apu);
         void set_vram_lock(bool locked);
         void set_oam_lock(bool locked);
         u8 readX(u16 address);

@@ -18,6 +18,13 @@ Ui::Ui(Memory& mem, Controller& controller, int scale) :  mem(mem), controller(c
     }
 }
 void Ui::init(){
+    SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
+    SDL_AudioSpec audio_spec;
+    audio_spec.freq = 48000;
+    audio_spec.format = SDL_AUDIO_F32;
+    audio_spec.channels = 2;
+    this->audio_stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &audio_spec, nullptr, nullptr);
+    SDL_ResumeAudioStreamDevice(this->audio_stream);
     SDL_CreateWindowAndRenderer("Chico de Juego", XRES*scale, YRES*scale, 0, &this->main_window, &this->main_renderer);
     SDL_SetWindowTitle(this->main_window, "Chico de Juego");
     this->main_texture = SDL_CreateTexture(this->main_renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, XRES, YRES);
@@ -373,6 +380,17 @@ void Ui::update_speed_title(){
     }
 }
 
+void Ui::push_audio_sample(float left, float right){
+    float audio_frame[2] = {left, right};
+    SDL_PutAudioStreamData(this->audio_stream, audio_frame, sizeof(audio_frame));
+}
+int Ui::get_audio_queue_size(){
+    return SDL_GetAudioStreamAvailable(this->audio_stream);
+}
+void Ui::clear_audio_queue(){
+    SDL_ClearAudioStream(this->audio_stream);
+}
+
 Ui_ss Ui::save_state(){
     Ui_ss state;
     {
@@ -388,4 +406,7 @@ void Ui::load_state(const Ui_ss& state){
     SDL_RenderClear(this->main_renderer);
     SDL_RenderTexture(this->main_renderer, this->main_texture, NULL, NULL);
     SDL_RenderPresent(this->main_renderer);
+}
+void Ui::delay(int ms){
+    SDL_DelayPrecise(ms * 1000);
 }

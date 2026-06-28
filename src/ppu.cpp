@@ -15,21 +15,21 @@ Ppu::Ppu(Memory& mem, Ui* ui) : mem(mem), ui(ui) {
 
 void Ppu::tick(){
     if(!(this->mem.readX(LCDC_ADDR) & 0x80)){
-        if(!is_on) return;
+        if(!enabled) return;
         mem.set_vram_lock(false);
         mem.set_oam_lock(false);
         this->ppu_mode = Ppu_mode::VBLANK;
         this->line_ticks = 0;
         this->mem.writeX(LY_ADDR, (u8)0);
         this->mem.writeX(LCD_STAT_ADDR, static_cast<u8>(this->mem.readX(LCD_STAT_ADDR) & 0b11111100));
-        is_on = false;
+        enabled = false;
         return;
     }
-    if(!is_on){
+    if(!enabled){
         this->mem.writeX(LY_ADDR, (u8)0);
         this->change_mode(Ppu_mode::OAM);
         check_lyc_at_restart();
-        is_on = true;
+        enabled = true;
     }
     this->line_ticks++;
     switch(this->ppu_mode){
@@ -210,7 +210,7 @@ Ppu_ss Ppu::save_state() {
     memcpy(state.oam, this->oam, sizeof(this->oam));
     memcpy(state.line_oam, this->line_oam, sizeof(this->line_oam));
     state.sprites_in_line = this->sprites_in_line;
-    state.is_on = this->is_on;
+    state.is_on = this->enabled;
     state.startup = this->startup;
     state.ppu_mode = this->ppu_mode;
     state.line_ticks = this->line_ticks;
@@ -223,7 +223,7 @@ void Ppu::load_state(const Ppu_ss& state) {
     memcpy(this->oam, state.oam, sizeof(this->oam));
     memcpy(this->line_oam, state.line_oam, sizeof(this->line_oam));
     this->sprites_in_line = state.sprites_in_line;
-    this->is_on = state.is_on;
+    this->enabled = state.is_on;
     this->startup = state.startup;
     this->ppu_mode = state.ppu_mode;
     this->line_ticks = state.line_ticks;

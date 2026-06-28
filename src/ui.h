@@ -36,6 +36,7 @@ class Ui{
         SDL_Window* main_window;
         SDL_Renderer* main_renderer;
         SDL_Texture* main_texture;
+        SDL_AudioStream* audio_stream;
         u32 video_buffer_ppu[XRES * YRES];
         u32 video_buffer_render[XRES * YRES];
         DebugWindow debug_windows[NUM_DEBUG_WINDOWS];
@@ -67,4 +68,10 @@ class Ui{
         Ui_ss save_state();
         void load_state(const Ui_ss& state);
         void sync_video_buffer();
+
+        void push_audio_sample(float left, float right);
+        int get_audio_queue_size();
+        void clear_audio_queue();
+
+        void delay(int ms);
 };
