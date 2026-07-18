@@ -5,6 +5,20 @@
 class Memory;
 class Ui;
 enum class Audio_reg_write_origin{CPU, APU};
+struct Apu_ss {
+    bool enabled;
+    u8 last_div_bit;
+    double sample_timer;
+    u8 frame_step;
+    u8 left_volume, right_volume;
+    double left_cap, right_cap;
+    bool stereo_left[4];
+    bool stereo_right[4];
+    Pulse_1_channel_ss pulse_1;
+    Pulse_channel_ss pulse_2;
+    Wave_channel_ss wave;
+    Noise_channel_ss noise;
+};
 class Apu{
     private:
         Memory& mem;
@@ -31,4 +45,6 @@ class Apu{
         void internal_reset();
         u8 write(u16 addr, u8 data);
         void tick();
+        Apu_ss save_state() const;
+        void load_state(const Apu_ss& state);
 };

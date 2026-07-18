@@ -28,15 +28,15 @@ void Emu_sync::sync(){
     }
 
     // Now, delay to synchronize with real time (using audio as a reference)
-    int bytes_queued = ui->get_audio_queue_size();
+    int audio_bytes_queued = ui->get_audio_queue_size();
     if(this->turbo_mode){
-        if (bytes_queued > audio_bytes_per_sec / 30){
+        if (audio_bytes_queued > audio_bytes_per_sec / 30){
             ui->clear_audio_queue();
+            audio_bytes_queued = ui->get_audio_queue_size();
         }
-        //return;
     }
-    if (bytes_queued > target_bytes){
-        double excess = (bytes_queued - target_bytes) / (double)audio_bytes_per_sec;
+    if (audio_bytes_queued > target_bytes){
+        double excess = (audio_bytes_queued - target_bytes) / (double)audio_bytes_per_sec;
         ui->delay((int)(excess * 1e6));
     }
     // Old approach with chrono

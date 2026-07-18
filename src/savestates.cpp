@@ -1,7 +1,7 @@
 #include "savestates.h"
 
-SaveStateManager::SaveStateManager(Cpu* cpu, Timer* timer, Ppu* ppu, Memory* mem, Dma* dma, Ui* ui, int& ticks, int& ticks_since_last_sync)
-    : cpu(cpu), timer(timer), ppu(ppu), mem(mem), dma(dma), ui(ui), ticks(ticks), ticks_since_last_sync(ticks_since_last_sync){}
+SaveStateManager::SaveStateManager(Cpu* cpu, Timer* timer, Ppu* ppu, Memory* mem, Dma* dma, Ui* ui, Apu* apu, int& ticks, int& ticks_since_last_sync)
+    : cpu(cpu), timer(timer), ppu(ppu), mem(mem), dma(dma), ui(ui), apu(apu), ticks(ticks), ticks_since_last_sync(ticks_since_last_sync){}
 
 // --- Binary I/O helpers ---
 
@@ -158,6 +158,7 @@ void SaveStateManager::save_state(){
     state.mem_state              = mem->save_state();
     state.dma_state              = dma->save_state();
     state.ui_state               = ui->save_state();
+    state.apu_state              = apu->save_state();
     state.ticks                  = ticks;
     state.ticks_since_last_sync  = ticks_since_last_sync;
     state.sha256                 = mem->get_sha256();
@@ -168,6 +169,7 @@ void SaveStateManager::save_state(){
     write_memory_ss(file, state.mem_state);
     write_pod(file, state.dma_state);
     write_pod(file, state.ui_state);
+    write_pod(file, state.apu_state);
     write_pod(file, state.ticks);
     write_pod(file, state.ticks_since_last_sync);
     write_string(file, state.sha256);
@@ -189,6 +191,7 @@ void SaveStateManager::load_state(){
     read_memory_ss(file, state.mem_state);
     read_pod(file, state.dma_state);
     read_pod(file, state.ui_state);
+    read_pod(file, state.apu_state);
     read_pod(file, state.ticks);
     read_pod(file, state.ticks_since_last_sync);
     read_string(file, state.sha256);
@@ -205,6 +208,7 @@ void SaveStateManager::load_state(){
     mem->load_state(state.mem_state);
     dma->load_state(state.dma_state);
     ui->load_state(state.ui_state);
+    apu->load_state(state.apu_state);
     ticks                 = state.ticks;
     ticks_since_last_sync = state.ticks_since_last_sync;
 }

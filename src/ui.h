@@ -7,10 +7,10 @@
 #include <mutex>
 #include <atomic>
 #include <SDL3/SDL.h>
-
 class Debugger;
 
 #define NUM_DEBUG_WINDOWS 4
+#define AUDIO_SAMPLE_BUFFER_SIZE 512
 
 enum class DebugWindowType { TILES = 0, BG_MAP = 1, WIN_MAP = 2, OAM = 3 };
 
@@ -54,6 +54,9 @@ class Ui{
         std::atomic<int> pending_speed_percent{-1}; // -1 = no percentage shown
         int shown_speed_percent = -2;               // sentinel forces first apply
         void update_speed_title();
+
+        float audio_samples_buffer[AUDIO_SAMPLE_BUFFER_SIZE * 2];
+        size_t audio_samples_buffer_index = 0;
     public:
         std::atomic<bool> debug_toggle_requested[NUM_DEBUG_WINDOWS] = {};
         Ui(Memory& mem, Controller& controller, int scale = 4);

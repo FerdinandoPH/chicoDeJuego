@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 #include <variant>
+#include <chrono>
+//#include <format>
 
 class Memory;
 class Controller;
@@ -68,9 +70,10 @@ struct MBC2_state: public MBC_state{
     u8 mbc2_ram[512];
 };
 enum class MBC3_ram_mode{RAM, RTC};
+typedef enum {RTC_S=0, RTC_M=1, RTC_H=2, RTC_DL=3, RTC_DH=4} Rtc_regs;
 struct MBC3_state: public MBC_state{
     MBC3_ram_mode ram_mode = MBC3_ram_mode::RAM;
-        //RTC not implemented yet
+    u8 rtc_regs[5] = {0,0,0,0,0};
 };
 struct MBC5_state: public MBC_state{
     u8 reg_2000_2FFF = 0;

@@ -191,3 +191,41 @@ void Apu::tick(){
         this->generate_sample();
     }
 }
+Apu_ss Apu::save_state() const {
+    Apu_ss ss;
+    ss.enabled      = enabled;
+    ss.last_div_bit = last_div_bit;
+    ss.sample_timer = sample_timer;
+    ss.frame_step   = frame_step;
+    ss.left_volume  = left_volume;
+    ss.right_volume = right_volume;
+    ss.left_cap     = left_cap;
+    ss.right_cap    = right_cap;
+    for (int i = 0; i < 4; i++){
+        ss.stereo_left[i]  = stereo_left[i];
+        ss.stereo_right[i] = stereo_right[i];
+    }
+    ss.pulse_1 = pulse_1.save_state();
+    ss.pulse_2 = pulse_2.save_state();
+    ss.wave    = wave.save_state();
+    ss.noise   = noise.save_state();
+    return ss;
+}
+void Apu::load_state(const Apu_ss& state){
+    enabled      = state.enabled;
+    last_div_bit = state.last_div_bit;
+    sample_timer = state.sample_timer;
+    frame_step   = state.frame_step;
+    left_volume  = state.left_volume;
+    right_volume = state.right_volume;
+    left_cap     = state.left_cap;
+    right_cap    = state.right_cap;
+    for (int i = 0; i < 4; i++){
+        stereo_left[i]  = state.stereo_left[i];
+        stereo_right[i] = state.stereo_right[i];
+    }
+    pulse_1.load_state(state.pulse_1);
+    pulse_2.load_state(state.pulse_2);
+    wave.load_state(state.wave);
+    noise.load_state(state.noise);
+}

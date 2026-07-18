@@ -4,6 +4,47 @@ class Memory;
 struct Channel_regs { //Regs include triggerable values
     u8 volume;
 };
+// --- Save state PODs (mirrors the *_ss pattern used elsewhere) ---
+struct Channel_ss {
+    u16 length_limit;
+    u16 length_timer;
+    u8 volume_timer;
+    u16 frequency;
+    u32 frequency_timer;
+    bool playing;
+    bool dac_enabled;
+    bool length_enabled;
+    u8 ext_volume;
+    u8 int_volume;
+};
+struct Pulse_channel_ss {
+    Channel_ss base;
+    u8 duty_idx;
+    u8 ext_duty_cycle, int_duty_cycle;
+    u8 ext_envelope_dir, int_envelope_dir;
+    u8 ext_envelope_pace, int_envelope_pace;
+};
+struct Pulse_1_channel_ss {
+    Pulse_channel_ss base;
+    u8 ext_sweep_pace, int_sweep_pace;
+    u8 sweep_direction, sweep_step, sweep_iter_counter;
+    u16 shadow_frequency;
+    bool negative_sweep_occurred;
+};
+struct Wave_channel_ss {
+    Channel_ss base;
+    u8 wave_pattern[16];
+    u8 wave_idx;
+};
+enum class Noise_width;
+struct Noise_channel_ss {
+    Channel_ss base;
+    u8 ext_envelope_dir, int_envelope_dir;
+    u8 ext_envelope_pace, int_envelope_pace;
+    u16 lfsr;
+    u8 clock_divider, clock_shift;
+    Noise_width width_mode;
+};
 class Channel{
     protected:
         Memory& mem;
@@ -19,6 +60,8 @@ class Channel{
         bool dac_enabled = false;
         bool length_enabled = false;
         Channel(Memory& mem, Channel_regs& ext, Channel_regs& intl) : mem(mem), external_regs(ext), internal_regs(intl) {}
+        void save_base(Channel_ss& ss) const;
+        void load_base(const Channel_ss& ss);
     public:
         void internal_reset();
         void tick();
@@ -64,6 +107,8 @@ class Pulse_channel : public Channel{
         void frame_seq_tick(u8 step);
         void trigger();
         double generate_sample();
+        Pulse_channel_ss save_state() const;
+        void load_state(const Pulse_channel_ss& ss);
         #pragma region PulseGettersSetters
         u8 get_duty_cycle(bool internal = false) const { return internal ? internal_regs.duty_cycle : external_regs.duty_cycle; }
         void set_duty_cycle(u8 value, bool internal = false) { if (internal) internal_regs.duty_cycle = value; else external_regs.duty_cycle = value; }
@@ -94,6 +139,8 @@ class Pulse_1_channel : public Pulse_channel{
         void tick();
         void frame_seq_tick(u8 step);
         void trigger();
+        Pulse_1_channel_ss save_state() const;
+        void load_state(const Pulse_1_channel_ss& ss);
         #pragma region Pulse1GettersSetters
         u8 get_sweep_pace(bool internal = false) const { return internal ? internal_regs.sweep_pace : external_regs.sweep_pace; }
         void set_sweep_pace(u8 value, bool internal = false);
@@ -130,6 +177,8 @@ class Wave_channel : public Channel{
         void frame_seq_tick(u8 step);
         void trigger();
         double generate_sample();
+        Wave_channel_ss save_state() const;
+        void load_state(const Wave_channel_ss& ss);
         #pragma region WaveGettersSetters
         u8 get_volume() const { return Channel::get_volume(true); }
         void set_volume(u8 value) { Channel::set_volume(value, true); }
@@ -165,6 +214,8 @@ class Noise_channel : public Channel{
         void frame_seq_tick(u8 step);
         void trigger();
         double generate_sample();
+        Noise_channel_ss save_state() const;
+        void load_state(const Noise_channel_ss& ss);
         #pragma region NoiseGettersSetters
         u8 get_envelope_dir(bool internal = false) const { return internal ? internal_regs.envelope_dir : external_regs.envelope_dir; }
         void set_envelope_dir(u8 value, bool internal = false) { if (internal) internal_regs.envelope_dir = value; else external_regs.envelope_dir = value; }

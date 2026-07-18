@@ -35,7 +35,7 @@ Apu* apu = new Apu(*memory, *ui);
 Ppu* ppu = new Ppu(*memory, ui);
 std::mutex ui_mutex = std::mutex();
 Debugger dbg = Debugger(initial_dbg_mode, ticks, *memory, *cpu, *timer, *ppu);
-SaveStateManager* ssm = new SaveStateManager(cpu, timer, ppu, memory, dma, ui, ticks, ticks_since_last_sync);
+SaveStateManager* ssm = new SaveStateManager(cpu, timer, ppu, memory, dma, ui, apu, ticks, ticks_since_last_sync);
 Emu_sync* sync_controller = new Emu_sync(ticks, ticks_since_last_sync, memory, controller, ui);
 void signal_handler(int signal){
     if (signal == SIGINT){

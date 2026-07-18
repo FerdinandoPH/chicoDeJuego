@@ -1,11 +1,13 @@
 cmake_minimum_required(VERSION 3.22 FATAL_ERROR)
 project(chicoDeJuego C CXX)
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(MAIN_SOURCE chicoDeJuego.cpp)
 set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Og -Wall -Wno-unknown-pragmas")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Og -Wall -Wno-unknown-pragmas")
-
+# set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
+# add_link_options(-flto=auto)
 if(WIN32)
     include_directories("${PROJECT_SOURCE_DIR}/windows_libs/pthread/include")
 

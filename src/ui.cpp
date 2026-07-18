@@ -381,8 +381,12 @@ void Ui::update_speed_title(){
 }
 
 void Ui::push_audio_sample(float left, float right){
-    float audio_frame[2] = {left, right};
-    SDL_PutAudioStreamData(this->audio_stream, audio_frame, sizeof(audio_frame));
+    audio_samples_buffer[audio_samples_buffer_index++] = left;
+    audio_samples_buffer[audio_samples_buffer_index++] = right;
+    if (audio_samples_buffer_index >= AUDIO_SAMPLE_BUFFER_SIZE * 2){
+        SDL_PutAudioStreamData(this->audio_stream, audio_samples_buffer, AUDIO_SAMPLE_BUFFER_SIZE * 2 * sizeof(float));
+        audio_samples_buffer_index = 0;
+    }
 }
 int Ui::get_audio_queue_size(){
     return SDL_GetAudioStreamAvailable(this->audio_stream);
