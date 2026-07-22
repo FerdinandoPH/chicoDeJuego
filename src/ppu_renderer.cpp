@@ -90,7 +90,7 @@ void Pixel_Fetcher::tick(){
                     map_addr = mem.readX(LCDC_ADDR) & 8 ? 0x9C00 : 0x9800; //LCDC bit 3 specifies the BG tile map area
                     map_addr += ((f_lx + f_scx) % 256) / 8 + (((f_scy + f_ly) % 256) / 8) * 32;
                     bool $8800_addressing = !(mem.readX(LCDC_ADDR) & 0x10); //LCDC bit 4 specifies the BG & Window tile data area
-                    u8 tile_index = mem.readX(map_addr);
+                    u8 tile_index = mem.vram_readX(map_addr, 0);
                     if($8800_addressing){
                         tile_addr = 0x9000 + static_cast<i8>(tile_index) * 16;
                     }else{
@@ -103,7 +103,7 @@ void Pixel_Fetcher::tick(){
                     map_addr = mem.readX(LCDC_ADDR) & 0x40 ? 0x9C00 : 0x9800; //LCDC bit 6 specifies the Window tile map area
                     map_addr += ((f_win_lx) / 8) + (f_win_ly / 8) * 32;
                     bool $8800_addressing = !(mem.readX(LCDC_ADDR) & 0x10);
-                    u8 tile_index = mem.readX(map_addr);
+                    u8 tile_index = mem.vram_readX(map_addr, 0);
                     if($8800_addressing){
                         tile_addr = 0x9000 + static_cast<i8>(tile_index) * 16;
                     }else{
@@ -118,14 +118,14 @@ void Pixel_Fetcher::tick(){
             this->state = Pixel_fetcher_state::READ_DATA_LO;
             break;
         case Pixel_fetcher_state::READ_DATA_LO:
-            tile_lo = mem.readX(tile_addr + get_line_to_read() * 2);
+            tile_lo = mem.vram_readX(tile_addr + get_line_to_read() * 2, 0);
             this->state = Pixel_fetcher_state::READ_DATA_LO_2;
             break;
         case Pixel_fetcher_state::READ_DATA_LO_2:
             this->state = Pixel_fetcher_state::READ_DATA_HI;
             break;
         case Pixel_fetcher_state::READ_DATA_HI:
-            tile_hi = mem.readX(tile_addr + get_line_to_read() * 2 + 1);
+            tile_hi = mem.vram_readX(tile_addr + get_line_to_read() * 2 + 1, 0);
             assemble_pixels();
             this->state = Pixel_fetcher_state::READ_DATA_HI_2;
             break;

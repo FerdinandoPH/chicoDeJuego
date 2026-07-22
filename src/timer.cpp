@@ -61,6 +61,13 @@ std::string Timer::toString(){
     str += this->tac_toString();
     return str;
 }
+
+void Timer::prepare_speed_change(){
+    this->mem.writeX(DIV_ADDR, (u8)0);
+    this->internal_clock = 0;
+    this->tima_accumulation = 0;
+}
+
 Timer_trace Timer::get_trace(){
     Timer_trace trace;
     trace.div = this->mem.readX(DIV_ADDR);

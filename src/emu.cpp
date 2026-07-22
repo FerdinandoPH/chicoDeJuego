@@ -1,4 +1,5 @@
 #include "emu.h"
+#include "prefs.h"
 #include "debugger.h"
 #include "memory.h"
 #include "utils.h"
@@ -12,27 +13,34 @@
 #include "controller.h"
 #include "sync.h"
 #include "savestates.h"
+#include "hw_reg_def.h"
 #include <pthread.h>
 #include <iostream>
 #include <csignal>
 #include <mutex>
 #include <chrono>
 
+Prefs prefs = Prefs{.force_dmg = false};
 Debug_mode initial_dbg_mode = NO_DBG;
-
-Memory* memory = new Memory();
+GB_model gb_model = GB_model::DMG;
+Memory* memory = new Memory(gb_model, &prefs);
 Controller* controller = new Controller(*memory);
 
 Dma* dma = new Dma(memory);
-Cpu* cpu = new Cpu(*memory);
+
+
+int ticks_per_frame = 70224;
+Cpu* cpu = new Cpu(*memory, gb_model, ticks_per_frame);
 Timer* timer = new Timer(*cpu, *memory);
 int ticks = 0;
 int ticks_since_last_sync = 0;
 
 bool resetting = false;
 Ui* ui = new Ui(*memory, *controller, 4);
-Apu* apu = new Apu(*memory, *ui);
+Apu* apu = new Apu(*memory, *cpu, *ui);
 Ppu* ppu = new Ppu(*memory, ui);
+
+Vdma* vdma = new Vdma(memory, ppu, cpu);
 std::mutex ui_mutex = std::mutex();
 Debugger dbg = Debugger(initial_dbg_mode, ticks, *memory, *cpu, *timer, *ppu);
 SaveStateManager* ssm = new SaveStateManager(cpu, timer, ppu, memory, dma, ui, apu, ticks, ticks_since_last_sync);
@@ -181,7 +189,7 @@ void* cpu_run(void* thread_args){
         }
         //dbg.start_chrono();
         cpu->step();
-        if(ticks_since_last_sync >=70224 && (ppu->vblank_triggered || !ppu->is_enabled())){ //Sync on each VBlank
+        if(ticks_since_last_sync >=ticks_per_frame && (ppu->vblank_triggered || !ppu->is_enabled())){ //Sync on each VBlank
             if (ppu->vblank_triggered)
                 ppu->vblank_triggered = false;
             sync_controller->sync();
@@ -199,6 +207,9 @@ int emu_run(int argc, char** argv){
     memory->set_dma(dma);
     memory->set_controller(controller);
     memory->set_apu(apu);
+    memory->set_vdma(vdma);
+    cpu->set_timer(timer);
+    cpu->set_apu(apu);
     ui->init();
     controller->set_sync_controller(sync_controller);
     controller->set_save_state_manager(ssm);
@@ -207,6 +218,7 @@ int emu_run(int argc, char** argv){
         return 1;
     }
     printf("ROM loaded: %s\n\n", memory->rom_header->title);
+    cpu->reset(); // load GBC if applicable
     ssm->set_filename(std::string(memory->rom_header->title) + ".state");
     cpu->adjust_flag_from_checksum();
     #ifdef TRACEGEN
@@ -228,19 +240,45 @@ int emu_run(int argc, char** argv){
         }
     }
     pthread_join(cpu_thread, nullptr);
-    memory->save_ram();
+    memory->close();
     return 0;
 }
 void run_ticks(int ticks_to_run){
-    for(int m = 0; m < ticks_to_run; m++){
-        for (int tick = 0; tick < 4; tick++){
+    // for(int m = 0; m < ticks_to_run; m++){
+    //     for (int tick = 0; tick < 4; tick++){
+    //         ticks++;
+    //         ticks_since_last_sync++;
+    //         timer->tick();
+    //         ppu->tick();
+    //         apu->tick();
+    //     }
+    //     dma->tick();
+    // }
+    int tick_goal = ticks + ticks_to_run;
+    for(int i = ticks; i < tick_goal; i++){
+
+        
+        for (int j = 0; j < 4; j++){
+            //Always 4
             ticks++;
             ticks_since_last_sync++;
             timer->tick();
-            ppu->tick();
-            apu->tick();
+            // 2 or 4 depending on speed
+            if(j % (cpu->get_speed_mode() == Speed_mode::NORMAL ? 1 : 2) == 0){
+                ppu->tick();
+                apu->tick();
+            }
         }
+
+
+
+        //Always 1
         dma->tick();
+
+        //1 or 1/2 depending on speed
+        if(gb_model == GB_model::CGB && i % (cpu->get_speed_mode() == Speed_mode::NORMAL ? 1 : 2) == 0){
+            vdma->tick();
+        }
     }
 }
 

@@ -37,6 +37,7 @@ class Timer{
         bool trigger_on_next = false;
         void tick();
         void reset();
+        void prepare_speed_change();
         std::string tac_toString();
         std::string toString();
         Timer_trace get_trace();

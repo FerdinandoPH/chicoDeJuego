@@ -1,7 +1,8 @@
 #include "apu.h"
 #include "memory.h"
 #include "ui.h"
-Apu::Apu(Memory& mem, Ui& ui) : mem(mem), ui(ui), pulse_1(mem), pulse_2(mem), wave(mem), noise(mem) {
+#include "cpu.h"
+Apu::Apu(Memory& mem, Cpu& cpu, Ui& ui) : mem(mem), cpu(cpu), ui(ui), pulse_1(mem), pulse_2(mem), wave(mem), noise(mem) {
     internal_reset();
 }
 
@@ -191,6 +192,11 @@ void Apu::tick(){
         this->generate_sample();
     }
 }
+void Apu::prepare_speed_change(){
+    div_bit_to_check = (cpu.get_speed_mode() == Speed_mode::NORMAL) ? 4 : 5;
+}
+
+
 Apu_ss Apu::save_state() const {
     Apu_ss ss;
     ss.enabled      = enabled;

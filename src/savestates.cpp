@@ -69,9 +69,9 @@ static void write_memory_ss(FILE* f, const Memory_ss& ss) {
     write_pod(f, ss.mbc_state);
     write_pod(f, ss.current_rom0_bank);
     write_pod(f, ss.current_rom1_bank);
-    write_pod(f, ss.current_ram_bank);
+    write_pod(f, ss.current_cart_ram_bank);
     write_pod(f, ss.modifiable_mem);
-    write_vector(f, ss.ram);
+    write_vector(f, ss.cart_ram);
 }
 
 static void read_memory_ss(FILE* f, Memory_ss& ss) {
@@ -79,9 +79,9 @@ static void read_memory_ss(FILE* f, Memory_ss& ss) {
     read_pod(f, ss.mbc_state);
     read_pod(f, ss.current_rom0_bank);
     read_pod(f, ss.current_rom1_bank);
-    read_pod(f, ss.current_ram_bank);
+    read_pod(f, ss.current_cart_ram_bank);
     read_pod(f, ss.modifiable_mem);
-    read_vector(f, ss.ram);
+    read_vector(f, ss.cart_ram);
 }
 
 static void write_fifo_ss(FILE* f, const Pixel_FIFO_ss& ss) {

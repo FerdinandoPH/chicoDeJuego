@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include "utils.h"
+#include "prefs.h"
 #include <mutex>
 #include <unordered_set>
 #include <unordered_map>
@@ -8,16 +9,18 @@
 #include <vector>
 #include <variant>
 #include <chrono>
+
 //#include <format>
 
 class Memory;
 class Controller;
 class Dma;
 class Apu;
+class Vdma;
 
 //#define SERIAL_LOG
 enum class MBC_type{NONE, MBC1, MBC2, MBC3, MBC5, MBC6, MBC7, MMM01, CAMERA, TAMA5, HuC1, HuC3};
-enum class MBC_action{INIT, READ, WRITE};
+enum class MBC_action{INIT, READ, WRITE, CLOSE};
 enum class MBC_ret_type{DISCARD, KEEP, RETURN};
 typedef struct{
     bool has_battery=false;
@@ -34,7 +37,7 @@ extern const std::unordered_set<u8> cart_with_battery;
 extern const std::unordered_set<u8> cart_with_timer;
 extern const std::unordered_set<u8> cart_with_rumble;
 
-extern const std::unordered_map<u8,size_t> ram_size_to_bytes;
+extern const std::unordered_map<u8,size_t> cart_ram_size_to_bytes;
 extern const std::unordered_map<u8,size_t> rom_size_to_number_of_banks;
 extern const std::unordered_map<MBC_type, std::string> mbc_names;
 extern const std::unordered_map<MBC_type, void (Memory::*)(MBC_action, u16, u8, MBC_result*)> mbc_handlers;
@@ -47,7 +50,7 @@ typedef struct{
     u8 sgb_flag;
     u8 cart_type;
     u8 rom_size;
-    u8 ram_size;
+    u8 cart_ram_size;
     u8 region_code;
     u16 license_code;
     u8 version;
@@ -58,7 +61,7 @@ typedef struct{
 struct MBC_state{
     bool ext_ram_enabled = false;
     size_t rom_banks = 0;
-    size_t ram_banks = 0;
+    size_t cart_ram_banks = 0;
 };
 struct MBC1_state: public MBC_state{
     bool advanced_banking_mode = false;
@@ -70,10 +73,25 @@ struct MBC2_state: public MBC_state{
     u8 mbc2_ram[512];
 };
 enum class MBC3_ram_mode{RAM, RTC};
-typedef enum {RTC_S=0, RTC_M=1, RTC_H=2, RTC_DL=3, RTC_DH=4} Rtc_regs;
+struct Rtc_regs{
+    u8 seconds;
+    u8 minutes;
+    u8 hours;
+    u8 days_lo;
+    u8 days_hi;
+    bool is_stopped;
+    bool day_carry;
+};
+struct Rtc_state{
+    std::chrono::system_clock::time_point last_write_time;
+    Rtc_regs regs;
+};
 struct MBC3_state: public MBC_state{
     MBC3_ram_mode ram_mode = MBC3_ram_mode::RAM;
-    u8 rtc_regs[5] = {0,0,0,0,0};
+    Rtc_state rtc_state;
+    Rtc_regs latched_regs;
+    u8 reg_4000_5FFF = 0;
+    u8 reg_6000_7FFF = 0xFF;
 };
 struct MBC5_state: public MBC_state{
     u8 reg_2000_2FFF = 0;
@@ -86,25 +104,31 @@ typedef struct{
     MBC_state_variant mbc_state;
     size_t current_rom0_bank;
     size_t current_rom1_bank;
-    size_t current_ram_bank;
+    size_t current_cart_ram_bank;
     u8 modifiable_mem[0x10000-0x8000];
-    std::vector<u8> ram;
+    std::vector<u8> cart_ram;
 }Memory_ss;
 
 class Memory {
 
     private:
+        GB_model& gb_model;
+        Prefs* prefs;
         MBC_type mbc_type;
         //std::mutex mem_mutex;
         std::mutex mem_ui_mutex;
         u8 _mem[0x10000];
+        u8 _vram[0x4000];
+        u8 _wram[0x8000];
+        u8 _wram_current_bank = 1;
+        u8 _vram_current_bank = 0;
         u8 _mem_copy_for_ui[0x10000];
         std::string _rom_filename;
         u8* _rom = nullptr;
-        u8* _ram = nullptr;
+        u8* _cart_ram = nullptr;
         MBC_state_variant mbc_state;
-        size_t _ram_size = 0;
-        size_t _ram_bank_size = 8192;
+        size_t _cart_ram_size = 0;
+        size_t _cart_ram_bank_size = 8192;
         size_t _rom_size = 0;
         class Proxy{
             private:
@@ -119,11 +143,13 @@ class Memory {
         void load_save();
         MBC_result process_MBC_read(u16 address);
         MBC_result process_MBC_write(u16 address, u8 data);
-        size_t current_ram_bank = 0;
+        void save_cart_ram();
+        size_t current_cart_ram_bank = 0;
         size_t current_rom0_bank = 0;
         size_t current_rom1_bank = 1;
         //u8 process_mbc_read(u16 address);
         Dma* dma;
+        Vdma* vdma;
         Controller* controller;
         Apu* apu;
         bool vram_locked = false;
@@ -135,13 +161,14 @@ class Memory {
         Cart_header* rom_header;
         Cart_features cart_features;
         bool is_protected = true;
-        Memory();
+        Memory(GB_model& gb_model, Prefs* prefs);
         ~Memory();
         void dump();
         void get_mem_ui_copy(u8* ptr);
         void sync_mem_ui_copy();
         void reset();
         void set_dma(Dma* dma);
+        void set_vdma(Vdma* vdma){this->vdma = vdma;};
         void set_controller(Controller* controller);
         void set_apu(Apu* apu);
         void set_vram_lock(bool locked);
@@ -152,14 +179,16 @@ class Memory {
         u8 read(u16 address, bool from_cpu);
         void write(u16 address, u8 data, bool from_cpu);
         Proxy operator[](u16 address) { return Proxy(*this, address); }
+        u8 vram_readX(u16 address, u8 bank);
+        void vram_writeX(u16 address, u8 data, u8 bank);
         bool load_rom(const char* filename);
         std::string get_sha256();
         Cart_header get_cart_header();
-        void save_ram();
         Memory_ss save_state();
         void load_state(const Memory_ss& state);
+        void close();
         #pragma region MBC_handlers
-            void change_banks(size_t new_rom0_bank, size_t new_rom1_bank, size_t new_ram_bank, bool dump_ram = true);
+            void change_banks(size_t new_rom0_bank, size_t new_rom1_bank, size_t new_cart_ram_bank, bool dump_cart_ram = true);
             void MBC1_handler(MBC_action action, u16 address, u8 data, MBC_result* result);
             void MBC1_change_banks();
             void MBC2_handler(MBC_action action, u16 address, u8 data, MBC_result* result);

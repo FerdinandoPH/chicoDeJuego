@@ -1,5 +1,5 @@
 #pragma once
-
+enum class GB_model{DMG, CGB};
 #define JOYP_ADDR 0xFF00
 #define SB_ADDR 0xFF01
 #define SC_ADDR 0xFF02
@@ -41,5 +41,17 @@
 #define OBP1_ADDR 0xFF49
 #define WY_ADDR 0xFF4A
 #define WX_ADDR 0xFF4B
+
+#define KEY0_ADDR 0xFF4C
+#define KEY1_ADDR 0xFF4D
+#define VBK_ADDR 0xFF4F
+
+#define VDMA1_ADDR 0xFF51
+#define VDMA2_ADDR 0xFF52
+#define VDMA3_ADDR 0xFF53
+#define VDMA4_ADDR 0xFF54
+#define VDMA5_ADDR 0xFF55
+
+#define SVBK_ADDR 0xFF70
 
 #define IE_ADDR 0xFFFF

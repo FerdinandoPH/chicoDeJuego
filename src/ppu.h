@@ -173,6 +173,7 @@ class Ppu{
         Sprite line_oam[10];
         int sprites_in_line;
         Ppu(Memory& mem, Ui* ui);
+        Ppu_mode get_mode(){return ppu_mode;};
         void tick();
         void reset();
         std::string toString();

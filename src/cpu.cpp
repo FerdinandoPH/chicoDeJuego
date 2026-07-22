@@ -1,6 +1,8 @@
 #include "cpu.h"
 #include "emu.h"
 #include "memory.h"
+#include "timer.h"
+#include "apu.h"
 #include <string>
 #include <iostream>
 #include "utils.h"
@@ -556,7 +558,7 @@ const Instr Cpu::instr_table_prefix[0x100] = {
     (Instr){(Instr_args){"SET",0xCBFD, (Operand){Addr_mode::REG, L}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::SET},
     (Instr){(Instr_args){"SET",0xCBFE, (Operand){Addr_mode::MEM_REG, HL}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::SET},
     (Instr){(Instr_args){"SET",0xCBFF, (Operand){Addr_mode::REG, A}, (Operand){Addr_mode::IMPL_SHOW, NO_REG, 7}}, &Cpu::SET}};
-Cpu::Cpu(Memory& memory): mem(memory){
+Cpu::Cpu(Memory& memory, GB_model& gb_model, int& ticks_per_frame): mem(memory), gb_model(gb_model), ticks_per_frame(ticks_per_frame){
     this->reset();
 }
 
@@ -575,7 +577,7 @@ void Cpu::reset(){ //Sets states and registers to initial values
     this->opcode = 0;
     this->regs[PC] = 0x100;
     this->regs[SP] = 0xFFFE;
-    this->regs[A] = 1;
+    this->regs[A] = this->gb_model == GB_model::CGB ? 0x11 : 0x01;
     this->regs[F] = 0x80;
     this->regs[B] = 0x00;
     this->regs[C] = 0x13;
@@ -671,7 +673,7 @@ bool Cpu::step(){
         return true;
     }
     else{
-        run_ticks(1); //Otherwise the timer won't move when HALTed
+        run_ticks(1); //Otherwise the timer won't move when HALTed or VDMA HALTed
     }
     return false;
 }
@@ -939,7 +941,26 @@ void Cpu::HALT(Instr_args args){
     }
 }
 void Cpu::STOP(Instr_args args){
-    this->NOP(args); //For now I'm leaving it this way, I didn't know STOP was so weird
+    if (this->gb_model != GB_model::CGB)
+        this->NOP(args); //For now I'm leaving it this way, I didn't know STOP was so weird
+    else{
+        if (this->mem.readX(KEY1_ADDR) & 0x1){
+            if(this->speed_mode == Speed_mode::NORMAL){
+                this->speed_mode = Speed_mode::DOUBLE;
+                this->mem.writeX(KEY1_ADDR, (u8)0x80);
+                ticks_per_frame = 2 * ticks_per_frame;
+            }else{
+                this->speed_mode = Speed_mode::NORMAL;
+                this->mem.writeX(KEY1_ADDR, (u8)0x00);
+                ticks_per_frame = ticks_per_frame / 2;
+            }
+            timer->prepare_speed_change();
+            apu->prepare_speed_change();
+            this->regs[PC]++; //The PC should be +1 after executing STOP
+        }else{
+            this->NOP(args);
+        }
+    }
 }
 void Cpu::DI(Instr_args args){
     this->IME = false;

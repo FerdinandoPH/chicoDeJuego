@@ -4,6 +4,7 @@
 #include "hw_reg_def.h"
 class Memory;
 class Ui;
+class Cpu;
 enum class Audio_reg_write_origin{CPU, APU};
 struct Apu_ss {
     bool enabled;
@@ -22,6 +23,7 @@ struct Apu_ss {
 class Apu{
     private:
         Memory& mem;
+        Cpu& cpu;
         Ui& ui;
         bool enabled = true;
         u8 last_div_bit = 0;
@@ -41,10 +43,11 @@ class Apu{
         void generate_sample();
         double dc_block(double in, double& cap);
     public:
-        Apu(Memory& mem, Ui& ui);
+        Apu(Memory& mem, Cpu& cpu, Ui& ui);
         void internal_reset();
         u8 write(u16 addr, u8 data);
         void tick();
+        void prepare_speed_change();
         Apu_ss save_state() const;
         void load_state(const Apu_ss& state);
 };

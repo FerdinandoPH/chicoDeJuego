@@ -22,7 +22,7 @@ const std::unordered_map<MBC_type, std::string> mbc_names = {
     {MBC_type::HuC1, "HuC1"},
     {MBC_type::HuC3, "HuC3"}
 };
-Memory::Memory() : mem_ui_mutex() {
+Memory::Memory(GB_model& gb_model, Prefs* prefs) : gb_model(gb_model), prefs(prefs), mem_ui_mutex() {
     memset(_mem, 0, sizeof(_mem));
     this->reset();
 }
@@ -30,14 +30,19 @@ Memory::~Memory() {
     if (_rom) {
         free(_rom);
     }
-    if(_ram){
-        free(_ram);
+    if(_cart_ram){
+        free(_cart_ram);
     }
     #ifdef SERIAL_LOG
     if (serial_log) {
         fclose(serial_log);
     }
     #endif
+}
+void Memory::close(){
+    if(this->mbc_type != MBC_type::NONE)
+        (this->*mbc_handlers.at(this->mbc_type))(MBC_action::CLOSE, 0, 0, nullptr);
+    this->save_cart_ram();
 }
 /*When reading/writing to memory from CPU, sometimes some side effects will occur
  *readX and writeX will ignore these side effects*/
@@ -59,10 +64,13 @@ void Memory::write(u16 address, u8 data, bool from_cpu) {
             //writable = false;
             return;
         }
-        if(vram_locked && BETWEEN(address, 0x8000, 0x9FFF)){
-            std::cout<<"Writing to VRAM while locked at address: "<<numToHexString(address, 4)<<" and value: "<<numToHexString(data, 2)<<std::endl;
-            //writable = false;
-            return;
+        if(BETWEEN(address, 0x8000, 0x9FFF)){
+            if(vram_locked){
+                std::cout<<"Writing to VRAM while locked at address: "<<numToHexString(address, 4)<<" and value: "<<numToHexString(data, 2)<<std::endl;
+                //writable = false;
+                return;
+            }
+            vram_writeX(address, data, _vram_current_bank);
         }
         if(oam_locked && BETWEEN(address, 0xFE00, 0xFE9F)){
             std::cout<<"Writing to OAM while locked at address: "<<numToHexString(address, 4)<<" and value: "<<numToHexString(data, 2)<<std::endl;
@@ -92,6 +100,38 @@ void Memory::write(u16 address, u8 data, bool from_cpu) {
                 break;
             case DIV_ADDR:
                 data = 0;
+                break;
+
+            case VDMA1_ADDR: case VDMA2_ADDR:
+                if(gb_model == GB_model::CGB)
+                    this->vdma->set_src(address, data);
+                break;
+            case VDMA3_ADDR: case VDMA4_ADDR:
+                if(gb_model == GB_model::CGB)
+                    this->vdma->set_dest(address, data);
+                break;
+            case VDMA5_ADDR:
+                if(gb_model == GB_model::CGB)
+                    data = this->vdma->set_VDMA5(data);
+                break;
+            case VBK_ADDR:
+                if(gb_model == GB_model::CGB){
+                    _vram_current_bank = data & 0b1;
+                    memcpy(_mem + 0x8000, _vram + (_vram_current_bank * 0x2000), 0x2000);
+                }
+                break;
+            case SVBK_ADDR:
+                if(gb_model == GB_model::CGB){
+                    u8 new_wram_bank = data & 0b111;
+                    if(new_wram_bank == 0) new_wram_bank = 1;
+                    if(new_wram_bank != _wram_current_bank){
+                        memcpy(_wram + (_wram_current_bank * 0x1000), _mem + 0xD000, 0x1000);
+                        _wram_current_bank = new_wram_bank;
+                        memcpy(_mem + 0xD000, _wram + (_wram_current_bank * 0x1000), 0x1000);
+                    }
+                }
+                break;
+            default:
                 break;
         }
         #ifdef SERIAL_LOG
@@ -127,7 +167,7 @@ u8 Memory::read(u16 address, bool from_cpu) {
             std::cout<<"Reading from OAM while locked at address: "<<numToHexString(address, 4)<<std::endl;
             return 0xFF;
         }
-        if(_ram_size <=0 && BETWEEN(address, 0xA000, 0xBFFF)){
+        if(_cart_ram_size <=0 && BETWEEN(address, 0xA000, 0xBFFF)){
             std::cout<<"Reading from non-existent RAM at address: "<<numToHexString(address, 4)<<std::endl;
             return 0xFF;
         }
@@ -146,8 +186,12 @@ void Memory::writeX(u16 address, u16 data) {
     this->write(address, static_cast<u8>(data & 0xFF), false);
 }
 
-
-
+u8 Memory::vram_readX(u16 address, u8 bank) {
+    return _vram[address - 0x8000 + (bank * 0x2000)];
+}
+void Memory::vram_writeX(u16 address, u8 data, u8 bank) {
+    _vram[address - 0x8000 + (bank * 0x2000)] = data;
+}
 
 void Memory::dump() { //Writes the current state of memory into a file and opens it with a HEX editor
     FILE* file = fopen("mem.hexd", "wb");
@@ -178,6 +222,8 @@ void Memory::reset(){
     std::scoped_lock<std::mutex> lock(this->mem_ui_mutex);
     memset(this->_mem_copy_for_ui, 0, sizeof(this->_mem_copy_for_ui));
     memset(_mem, 0, sizeof(_mem));
+    memset(_vram, 0, sizeof(_vram));
+    memset(_wram, 0, sizeof(_wram));
     if (_rom != NULL)
         memcpy(_mem, _rom, 0x8000);
     this->load_initial_values();
@@ -188,6 +234,7 @@ void Memory::reset(){
 
 void Memory::load_initial_values(){
     // Power-up values for DMG/MGB from Pan Docs (PC = 0x0100)
+    // In theory, we don't need to set these values if they're 0 (memset will do that anyways), but some are here for clarity
     _mem[JOYP_ADDR] = 0xCF;
     _mem[SB_ADDR] = 0x00;
     _mem[SC_ADDR] = 0x7E;
@@ -230,9 +277,12 @@ void Memory::load_initial_values(){
     // OBP0/OBP1 are unspecified on DMG/MGB at hand-off; leave current memory value.
     _mem[WY_ADDR] = 0x00;
     _mem[WX_ADDR] = 0x00;
+
+    _mem[SVBK_ADDR] = 0x01;
+
     _mem[IE_ADDR] = 0x00;
 
-    current_ram_bank = 0;
+    current_cart_ram_bank = 0;
     current_rom0_bank = 0;
     current_rom1_bank = 1;
 }
@@ -258,20 +308,20 @@ Memory_ss Memory::save_state() {
     state.mbc_state = this->mbc_state;
     state.current_rom0_bank = this->current_rom0_bank;
     state.current_rom1_bank = this->current_rom1_bank;
-    state.current_ram_bank = this->current_ram_bank;
+    state.current_cart_ram_bank = this->current_cart_ram_bank;
 
     memcpy(state.modifiable_mem, this->_mem + 0x8000, sizeof(state.modifiable_mem));
-    state.ram.assign(this->_ram, this->_ram + this->_ram_size);
+    state.cart_ram.assign(this->_cart_ram, this->_cart_ram + this->_cart_ram_size);
     return state;
 }
 
 void Memory::load_state(const Memory_ss& state) {
     this->mbc_type = state.mbc_type;
-    this->change_banks(state.current_rom0_bank, state.current_rom1_bank, state.current_ram_bank, false);
+    this->change_banks(state.current_rom0_bank, state.current_rom1_bank, state.current_cart_ram_bank, false);
 
     memcpy(this->_mem + 0x8000, state.modifiable_mem, sizeof(state.modifiable_mem));
-    if (!state.ram.empty()) {
-        memcpy(this->_ram, state.ram.data(), this->_ram_size);
+    if (!state.cart_ram.empty()) {
+        memcpy(this->_cart_ram, state.cart_ram.data(), this->_cart_ram_size);
     }
     this->mbc_state = state.mbc_state;
 }

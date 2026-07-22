@@ -1,16 +1,17 @@
 #pragma once
 #include "utils.h"
-
+#include "hw_reg_def.h"
 
 #include <unordered_map>
 #include <algorithm>
 #include <string>
 #include <mutex>
 #include <atomic>
-typedef enum {RUNNING, PAUSED, STOPPED, HALTED, QUIT} Cpu_State;
+typedef enum {RUNNING, PAUSED, STOPPED, HALTED, VDMA_HALTED, QUIT} Cpu_State;
 
 class Memory;
 
+enum class Speed_mode{NORMAL, DOUBLE};
 enum class Addr_mode{IMPL, IMPL_SHOW, IMM8, IMMe8, IMM16, REG, REG16, REG16_PLUS_IMMe8, MEM_REG, MEM_REG_INC, MEM_REG_DEC, MEM16_REG, MEM_IMM16, HRAM_PLUS_IMM8, HRAM_PLUS_C}; //All types of addressing modes for each instruction
 
 enum class Cond{ALWAYS, Z, NZ, C, NC};
@@ -229,10 +230,18 @@ typedef struct{
     Cpu_State state;
     HALT_SUBSTATE halt_substate;
 }Cpu_ss;
+
+class Timer;
+class Apu;
 class Cpu{
     private:
         std::atomic<Cpu_State> state{RUNNING};
         Memory& mem;
+        Timer* timer;
+        Apu* apu;
+        GB_model& gb_model;
+        int& ticks_per_frame;
+        Speed_mode speed_mode = Speed_mode::NORMAL;
         void fetch_operand(Operand& op, bool affect=true);
         void write_to_operand_8bit(Operand &op, u16 value, Addr_mode src_addr);
         void write_to_operand_16bit(Operand &op, u16 value, Addr_mode src_addr);
@@ -284,10 +293,16 @@ class Cpu{
         HALT_SUBSTATE halt_substate;
         u8 opcode;
         Reg_dict regs;
-        Cpu(Memory& mem);
+        Cpu(Memory& mem, GB_model& gb_model, int& ticks_per_frame);
         #ifdef LOGGER
         ~Cpu();
         #endif
+        void set_timer(Timer* timer){
+            this->timer = timer;
+        };
+        void set_apu(Apu* apu){
+            this->apu = apu;
+        };
         bool step();
         Cpu_State get_state();
         bool set_state(Cpu_State new_state);
@@ -296,6 +311,10 @@ class Cpu{
         void set_IF(u16 value);
         bool check_interrupts();
         void adjust_flag_from_checksum();
+
+        Speed_mode get_speed_mode(){
+            return this->speed_mode;
+        };
 
         std::string toString();
 
