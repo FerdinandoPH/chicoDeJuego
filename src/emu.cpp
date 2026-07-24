@@ -38,12 +38,12 @@ int ticks_since_last_sync = 0;
 bool resetting = false;
 Ui* ui = new Ui(*memory, *controller, 4);
 Apu* apu = new Apu(*memory, *cpu, *ui);
-Ppu* ppu = new Ppu(*memory, ui);
+Ppu* ppu = new Ppu(*memory, ui, gb_model);
 
 Vdma* vdma = new Vdma(memory, ppu, cpu);
 std::mutex ui_mutex = std::mutex();
 Debugger dbg = Debugger(initial_dbg_mode, ticks, *memory, *cpu, *timer, *ppu);
-SaveStateManager* ssm = new SaveStateManager(cpu, timer, ppu, memory, dma, ui, apu, ticks, ticks_since_last_sync);
+SaveStateManager* ssm = new SaveStateManager(cpu, timer, ppu, memory, dma, vdma, ui, apu, ticks, ticks_since_last_sync);
 Emu_sync* sync_controller = new Emu_sync(ticks, ticks_since_last_sync, memory, controller, ui);
 void signal_handler(int signal){
     if (signal == SIGINT){
@@ -217,9 +217,9 @@ int emu_run(int argc, char** argv){
         printf("Error loading ROM\n");
         return 1;
     }
-    printf("ROM loaded: %s\n\n", memory->rom_header->title);
+    printf("ROM loaded: %s\n\n", memory->rom_header.title);
     cpu->reset(); // load GBC if applicable
-    ssm->set_filename(std::string(memory->rom_header->title) + ".state");
+    ssm->set_filename(std::string(memory->rom_header.title) + ".state");
     cpu->adjust_flag_from_checksum();
     #ifdef TRACEGEN
     dbg.generate_trace_header();
@@ -275,9 +275,11 @@ void run_ticks(int ticks_to_run){
         //Always 1
         dma->tick();
 
-        //1 or 1/2 depending on speed
-        if(gb_model == GB_model::CGB && i % (cpu->get_speed_mode() == Speed_mode::NORMAL ? 1 : 2) == 0){
-            vdma->tick();
+        //2 or 1 depending on speed
+        if(gb_model == GB_model::CGB){
+            for (int j = 0; j < (cpu->get_speed_mode() == Speed_mode::NORMAL ? 2 : 1); j++){
+                vdma->tick();
+            }
         }
     }
 }

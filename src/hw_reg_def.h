@@ -52,6 +52,11 @@ enum class GB_model{DMG, CGB};
 #define VDMA4_ADDR 0xFF54
 #define VDMA5_ADDR 0xFF55
 
+#define BGPI_ADDR 0xFF68
+#define BGPD_ADDR 0xFF69
+#define OBPI_ADDR 0xFF6A
+#define OBPD_ADDR 0xFF6B
+
 #define SVBK_ADDR 0xFF70
 
 #define IE_ADDR 0xFFFF

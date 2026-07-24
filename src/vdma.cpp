@@ -36,7 +36,7 @@ u8 Vdma::set_VDMA5(u8 data){
         }
         return data & 0x7F;
     }else{
-        if(data & 0x80){
+        if(!(data & 0x80)){
             this->state = Vdma_state::IDLE;
             return 0x80 | ((this->bytes_left / 0x10) - 1);
         }else{
@@ -55,6 +55,7 @@ void Vdma::tick(){
             if(this->bytes_left > 0){
                 u8 data = this->mem->readX(this->source);
                 this->mem->writeX(this->dest, data);
+                this->mem->vram_writeX(this->dest, data, this->mem->get_current_vram_bank());
                 this->source++;
                 this->dest = (this->dest + 1) & 0x9FFF; //Wrap around to 0x8000 if it goes over 0x9FFF
                 this->bytes_left--;

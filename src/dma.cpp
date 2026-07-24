@@ -36,3 +36,23 @@ void Dma::load_state(const Dma_ss& state) {
     this->bytes_left = state.bytes_left;
     this->transferring = state.transferring;
 }
+
+Vdma_ss Vdma::save_state() {
+    Vdma_ss state;
+    state.source = this->source;
+    state.dest = this->dest;
+    state.bytes_left = this->bytes_left;
+    state.bytes_transferred_in_round = this->bytes_transferred_in_round;
+    state.mode = this->mode;
+    state.state = this->state;
+    return state;
+}
+
+void Vdma::load_state(const Vdma_ss& state) {
+    this->source = state.source;
+    this->dest = state.dest;
+    this->bytes_left = state.bytes_left;
+    this->bytes_transferred_in_round = state.bytes_transferred_in_round;
+    this->mode = state.mode;
+    this->state = state.state;
+}

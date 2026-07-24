@@ -60,20 +60,20 @@ void Memory::write(u16 address, u8 data, bool from_cpu) {
             return;
         }
         if(dma->transferring && !BETWEEN(address, 0xFF80, 0xFFFE)){
-            std::cout<<"Writing during DMA transfer at address: "<<numToHexString(address, 4)<<" and value: "<<numToHexString(data, 2)<<std::endl;
+           //std::cout<<"Writing during DMA transfer at address: "<<numToHexString(address, 4)<<" and value: "<<numToHexString(data, 2)<<std::endl;
             //writable = false;
             return;
         }
         if(BETWEEN(address, 0x8000, 0x9FFF)){
             if(vram_locked){
-                std::cout<<"Writing to VRAM while locked at address: "<<numToHexString(address, 4)<<" and value: "<<numToHexString(data, 2)<<std::endl;
+                //std::cout<<"Writing to VRAM while locked at address: "<<numToHexString(address, 4)<<" and value: "<<numToHexString(data, 2)<<std::endl;
                 //writable = false;
                 return;
             }
             vram_writeX(address, data, _vram_current_bank);
         }
         if(oam_locked && BETWEEN(address, 0xFE00, 0xFE9F)){
-            std::cout<<"Writing to OAM while locked at address: "<<numToHexString(address, 4)<<" and value: "<<numToHexString(data, 2)<<std::endl;
+            //std::cout<<"Writing to OAM while locked at address: "<<numToHexString(address, 4)<<" and value: "<<numToHexString(data, 2)<<std::endl;
             //writable = false;
             return;
         }
@@ -102,6 +102,10 @@ void Memory::write(u16 address, u8 data, bool from_cpu) {
                 data = 0;
                 break;
 
+            case KEY1_ADDR:
+                if(gb_model == GB_model::CGB)
+                    data |= 0x7E;
+                break;
             case VDMA1_ADDR: case VDMA2_ADDR:
                 if(gb_model == GB_model::CGB)
                     this->vdma->set_src(address, data);
@@ -118,6 +122,42 @@ void Memory::write(u16 address, u8 data, bool from_cpu) {
                 if(gb_model == GB_model::CGB){
                     _vram_current_bank = data & 0b1;
                     memcpy(_mem + 0x8000, _vram + (_vram_current_bank * 0x2000), 0x2000);
+                }
+                break;
+            case BGPI_ADDR:
+                if(gb_model == GB_model::CGB){
+                    data &= 0xBF;
+                    this->writeX(BGPD_ADDR, cram.bg_palettes[data & 0x3F]);
+                }
+                break;
+            case BGPD_ADDR:
+                if(gb_model == GB_model::CGB){
+                    u8 bgpi = this->readX(BGPI_ADDR);
+                    u8 cram_addr = bgpi & 0x3F;
+                    cram.bg_palettes[cram_addr] = data;
+                    if(bgpi & 0x80){
+                        bgpi++;
+                        bgpi &= 0xBF;
+                        this->writeX(BGPI_ADDR, bgpi);
+                    }
+                }
+                break;
+            case OBPI_ADDR:
+                if(gb_model == GB_model::CGB){
+                    data &= 0xBF;
+                    this->writeX(OBPD_ADDR, cram.obj_palettes[data & 0x3F]);
+                }
+                break;
+            case OBPD_ADDR:
+                if(gb_model == GB_model::CGB){
+                    u8 obpi = this->readX(OBPI_ADDR);
+                    u8 cram_addr = obpi & 0x3F;
+                    cram.obj_palettes[cram_addr] = data;
+                    if(obpi & 0x80){
+                        obpi++;
+                        obpi &= 0xBF;
+                        this->writeX(OBPI_ADDR, obpi);
+                    }
                 }
                 break;
             case SVBK_ADDR:
@@ -193,6 +233,25 @@ void Memory::vram_writeX(u16 address, u8 data, u8 bank) {
     _vram[address - 0x8000 + (bank * 0x2000)] = data;
 }
 
+u16 Memory::cram_readX(Cram_type type, u8 palette_idx, u8 color_idx) {
+    if (gb_model != GB_model::CGB) {
+        return 0xFFFF; // Return an invalid value for non-CGB models
+    }
+
+    palette_idx &= 7;
+    color_idx &= 3;
+
+    u16 color = 0;
+    u8 offset = palette_idx * 8 + color_idx * 2;
+    if (type == Cram_type::BGWIN) {
+        color = static_cast<u16>(cram.bg_palettes[offset]) | (static_cast<u16>(cram.bg_palettes[offset + 1]) << 8);
+    } else if (type == Cram_type::OBJ) {
+        color = static_cast<u16>(cram.obj_palettes[offset]) | (static_cast<u16>(cram.obj_palettes[offset + 1]) << 8);
+    }
+
+    return color;
+}
+
 void Memory::dump() { //Writes the current state of memory into a file and opens it with a HEX editor
     FILE* file = fopen("mem.hexd", "wb");
     if (file) {
@@ -214,13 +273,28 @@ void Memory::get_mem_ui_copy(u8* ptr){
     std::scoped_lock<std::mutex> lock(this->mem_ui_mutex);
     memcpy(ptr, this->_mem_copy_for_ui, 0x10000);
 }
+void Memory::get_vram_ui_copy(u8* ptr){
+    std::scoped_lock<std::mutex> lock(this->mem_ui_mutex);
+    memcpy(ptr, this->_vram_copy_for_ui, 0x4000);
+}
+void Memory::get_cram_ui_copy(Cram* ptr){
+    std::scoped_lock<std::mutex> lock(this->mem_ui_mutex);
+    memcpy(ptr, &this->_cram_copy_for_ui, sizeof(Cram));
+}
+GB_model Memory::get_gb_model(){
+    return this->gb_model;
+}
 void Memory::sync_mem_ui_copy(){
     std::scoped_lock<std::mutex> lock(this->mem_ui_mutex);
     memcpy(this->_mem_copy_for_ui, this->_mem, 0x10000);
+    memcpy(this->_vram_copy_for_ui, this->_vram, 0x4000);
+    this->_cram_copy_for_ui = this->cram;
 }
 void Memory::reset(){
     std::scoped_lock<std::mutex> lock(this->mem_ui_mutex);
     memset(this->_mem_copy_for_ui, 0, sizeof(this->_mem_copy_for_ui));
+    memset(this->_vram_copy_for_ui, 0, sizeof(this->_vram_copy_for_ui));
+    memset(&this->_cram_copy_for_ui, 0, sizeof(this->_cram_copy_for_ui));
     memset(_mem, 0, sizeof(_mem));
     memset(_vram, 0, sizeof(_vram));
     memset(_wram, 0, sizeof(_wram));

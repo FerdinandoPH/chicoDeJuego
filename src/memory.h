@@ -109,6 +109,12 @@ typedef struct{
     std::vector<u8> cart_ram;
 }Memory_ss;
 
+struct Cram{
+    u8 bg_palettes[64];
+    u8 obj_palettes[64];
+};
+enum class Cram_type{BGWIN, OBJ};
+
 class Memory {
 
     private:
@@ -120,9 +126,12 @@ class Memory {
         u8 _mem[0x10000];
         u8 _vram[0x4000];
         u8 _wram[0x8000];
+        Cram cram;
         u8 _wram_current_bank = 1;
         u8 _vram_current_bank = 0;
         u8 _mem_copy_for_ui[0x10000];
+        u8 _vram_copy_for_ui[0x4000];
+        Cram _cram_copy_for_ui;
         std::string _rom_filename;
         u8* _rom = nullptr;
         u8* _cart_ram = nullptr;
@@ -158,13 +167,16 @@ class Memory {
         FILE* serial_log;
         #endif
     public:
-        Cart_header* rom_header;
+        Cart_header rom_header;
         Cart_features cart_features;
         bool is_protected = true;
         Memory(GB_model& gb_model, Prefs* prefs);
         ~Memory();
         void dump();
         void get_mem_ui_copy(u8* ptr);
+        void get_vram_ui_copy(u8* ptr);
+        void get_cram_ui_copy(Cram* ptr);
+        GB_model get_gb_model();
         void sync_mem_ui_copy();
         void reset();
         void set_dma(Dma* dma);
@@ -181,6 +193,8 @@ class Memory {
         Proxy operator[](u16 address) { return Proxy(*this, address); }
         u8 vram_readX(u16 address, u8 bank);
         void vram_writeX(u16 address, u8 data, u8 bank);
+        u8 get_current_vram_bank() { return _vram_current_bank; }
+        u16 cram_readX(Cram_type type, u8 palette_idx, u8 color_idx);
         bool load_rom(const char* filename);
         std::string get_sha256();
         Cart_header get_cart_header();

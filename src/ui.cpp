@@ -43,6 +43,11 @@ void Ui::create_debug_window(DebugWindowType type){
     DebugWindow& dw = debug_windows[i];
     if (dw.active) return;
 
+    // The Tile Viewer shows both VRAM banks in CGB mode (bank 0 left, bank 1
+    // right), so it needs double width.
+    if (type == DebugWindowType::TILES)
+        dw.width = (mem.get_gb_model() == GB_model::CGB) ? (TILE_DBG_W * 2) : TILE_DBG_W;
+
     SDL_CreateWindowAndRenderer(dw.title,
         dw.width * dw.scale, dw.height * dw.scale,
         0, &dw.window, &dw.renderer);
@@ -162,6 +167,9 @@ bool Ui::update() {
 
     this->update_speed_title();
     this->mem.get_mem_ui_copy(this->mem_copy);
+    this->mem.get_vram_ui_copy(this->vram_copy);
+    this->mem.get_cram_ui_copy(&this->cram_copy);
+    this->gb_model = this->mem.get_gb_model();
     this->main_screen_update();
     this->tiles_dbg_update();
     this->bg_map_dbg_update();
@@ -220,21 +228,85 @@ void Ui::draw_dbg_tile(u32* pixel_buf, int buf_w, u16 tile_addr, int x, int y, u
     }
 }
 
+// Converts a 15-bit CGB color (BGR555) to ARGB8888. Mirrors the PPU renderer.
+u32 Ui::color_cgb_to_rgb(u16 cgb_color){
+    u8 r5 = cgb_color & 0x1F;
+    u8 g5 = (cgb_color >> 5) & 0x1F;
+    u8 b5 = (cgb_color >> 10) & 0x1F;
+    u8 r8 = (r5 << 3) | (r5 >> 2);
+    u8 g8 = (g5 << 3) | (g5 >> 2);
+    u8 b8 = (b5 << 3) | (b5 >> 2);
+    return (0xFFu << 24) | (r8 << 16) | (g8 << 8) | b8;
+}
+
+// Resolves a color from the CGB palette RAM snapshot (bg or obj palettes).
+u32 Ui::cgb_color_from_cram(bool obj, u8 pal_idx, u8 color_idx){
+    pal_idx &= 7;
+    color_idx &= 3;
+    const u8* palettes = obj ? cram_copy.obj_palettes : cram_copy.bg_palettes;
+    u8 offset = pal_idx * 8 + color_idx * 2;
+    u16 color = (u16)palettes[offset] | ((u16)palettes[offset + 1] << 8);
+    return color_cgb_to_rgb(color);
+}
+
+// Draws an 8x8 tile using CGB attributes: reads tile data from the given VRAM
+// bank, applies the BG/Win CGB palette from CRAM, and honors x/y flip.
+void Ui::draw_dbg_tile_cgb(u32* pixel_buf, int buf_w, u16 tile_addr, u8 bank,
+                           int x, int y, u8 cgb_pal_idx, bool x_flip, bool y_flip){
+    for (int row = 0; row < 8; row++){
+        int src_row = y_flip ? (7 - row) : row;
+        u32 base = (u32)(tile_addr - 0x8000) + bank * 0x2000 + src_row * 2;
+        u8 lo = vram_copy[base];
+        u8 hi = vram_copy[base + 1];
+        for (int col = 0; col < 8; col++){
+            int bit = x_flip ? col : (7 - col);
+            int color_id = (((hi >> bit) & 1) << 1) | ((lo >> bit) & 1);
+            pixel_buf[(y + row) * buf_w + (x + col)] = cgb_color_from_cram(false, cgb_pal_idx, color_id);
+        }
+    }
+}
+
 void Ui::tiles_dbg_update(){
     DebugWindow& dw = debug_windows[(int)DebugWindowType::TILES];
     if (!dw.active) return;
 
-    u32 pixel_buf[TILE_DBG_W * TILE_DBG_H];
-    std::fill_n(pixel_buf, TILE_DBG_W * TILE_DBG_H, GRID_COLOR);
+    bool cgb = (gb_model == GB_model::CGB);
+    // In CGB both VRAM banks (2 x 384 tiles) are shown side by side, so the
+    // buffer may be twice as wide. The window/texture size is set to match in
+    // create_debug_window.
+    int buf_w = dw.width;
+    int buf_h = dw.height;
+    u32 pixel_buf[(TILE_DBG_W * 2) * TILE_DBG_H]; // max size (both banks)
+    std::fill_n(pixel_buf, buf_w * buf_h, GRID_COLOR);
 
-    for (int tile_idx = 0; tile_idx < 384; tile_idx++){
-        u16 tile_addr = 0x8000 + tile_idx * 16;
-        int x = (tile_idx % 16) * 9;
-        int y = (tile_idx / 16) * 9;
-        draw_dbg_tile(pixel_buf, TILE_DBG_W, tile_addr, x, y, 0b11100100);
+    // Tiles have no inherent palette, so CGB tiles are shown with a neutral gray ramp.
+    static const u32 gray_ramp[4] = {0xFFFFFFFF, 0xFFAAAAAA, 0xFF555555, 0xFF000000};
+
+    int num_tiles = cgb ? 768 : 384;
+    for (int tile_idx = 0; tile_idx < num_tiles; tile_idx++){
+        u8 bank        = tile_idx / 384;   // 0 = VRAM bank 0, 1 = VRAM bank 1
+        int local_idx  = tile_idx % 384;
+        u16 tile_addr  = 0x8000 + local_idx * 16;
+        // Bank 0 fills the left 16 columns, bank 1 the right 16 columns.
+        int x = (bank * 16 + (local_idx % 16)) * 9;
+        int y = (local_idx / 16) * 9;
+        if (cgb){
+            for (int row = 0; row < 8; row++){
+                u32 base = (u32)(tile_addr - 0x8000) + bank * 0x2000 + row * 2;
+                u8 lo = vram_copy[base];
+                u8 hi = vram_copy[base + 1];
+                for (int col = 0; col < 8; col++){
+                    int bit = 7 - col;
+                    int color_id = (((hi >> bit) & 1) << 1) | ((lo >> bit) & 1);
+                    pixel_buf[(y + row) * buf_w + (x + col)] = gray_ramp[color_id];
+                }
+            }
+        } else {
+            draw_dbg_tile(pixel_buf, buf_w, tile_addr, x, y, 0b11100100);
+        }
     }
 
-    SDL_UpdateTexture(dw.texture, NULL, pixel_buf, TILE_DBG_W * sizeof(u32));
+    SDL_UpdateTexture(dw.texture, NULL, pixel_buf, buf_w * sizeof(u32));
     SDL_RenderClear(dw.renderer);
     SDL_RenderTexture(dw.renderer, dw.texture, NULL, NULL);
     SDL_RenderPresent(dw.renderer);
@@ -244,10 +316,14 @@ void Ui::bg_map_dbg_update(){
     if (!dw.active) return;
     u32 pixel_buf[BG_MAP_DBG_W * BG_MAP_DBG_H];
     std::fill_n(pixel_buf, BG_MAP_DBG_W * BG_MAP_DBG_H, GRID_COLOR);
+    bool cgb = (gb_model == GB_model::CGB);
     u16 bg_map_base_addr = mem_copy[LCDC_ADDR] & 0x8 ? 0x9C00 : 0x9800;
     u16 tile_data_base = mem_copy[LCDC_ADDR] & 0x10 ? 0x8000 : 0x9000;
     for (int i=0; i < 1024; i++){
-        u16 tile_idx = mem_copy[bg_map_base_addr + i];
+        // Tile indices always live in VRAM bank 0; in CGB the currently mapped
+        // bank in mem_copy is unreliable, so read from the VRAM snapshot directly.
+        u16 tile_idx = cgb ? vram_copy[bg_map_base_addr - 0x8000 + i]
+                           : mem_copy[bg_map_base_addr + i];
         u16 tile_addr = tile_data_base;
         if(tile_data_base == 0x9000)
             tile_addr += (i8)tile_idx * 16; // Signed index
@@ -255,7 +331,13 @@ void Ui::bg_map_dbg_update(){
             tile_addr += tile_idx * 16;      // Unsigned index
         int x = (i % 32) * 9;
         int y = (i / 32) * 9;
-        draw_dbg_tile(pixel_buf, BG_MAP_DBG_W, tile_addr, x, y, mem_copy[BGP_ADDR]);
+        if (cgb){
+            u8 attr = vram_copy[bg_map_base_addr - 0x8000 + 0x2000 + i]; // attrs in bank 1
+            draw_dbg_tile_cgb(pixel_buf, BG_MAP_DBG_W, tile_addr, (attr & 0x8) >> 3,
+                              x, y, attr & 0x7, attr & 0x20, attr & 0x40);
+        } else {
+            draw_dbg_tile(pixel_buf, BG_MAP_DBG_W, tile_addr, x, y, mem_copy[BGP_ADDR]);
+        }
     }
 
     // --- Viewport rectangle ---
@@ -302,10 +384,12 @@ void Ui::win_map_dbg_update(){
     if (!dw.active) return;
     u32 pixel_buf[WIN_MAP_DBG_W * WIN_MAP_DBG_H];
     std::fill_n(pixel_buf, WIN_MAP_DBG_W * WIN_MAP_DBG_H, GRID_COLOR);
+    bool cgb = (gb_model == GB_model::CGB);
     u16 win_map_base_addr = mem_copy[LCDC_ADDR] & 0x40 ? 0x9C00 : 0x9800;
     u16 tile_data_base = mem_copy[LCDC_ADDR] & 0x10 ? 0x8000 : 0x9000;
     for (int i=0; i < 1024; i++){
-        u16 tile_idx = mem_copy[win_map_base_addr + i];
+        u16 tile_idx = cgb ? vram_copy[win_map_base_addr - 0x8000 + i]
+                           : mem_copy[win_map_base_addr + i];
         u16 tile_addr = tile_data_base;
         if(tile_data_base == 0x9000)
             tile_addr += (i8)tile_idx * 16; // Signed index
@@ -313,7 +397,13 @@ void Ui::win_map_dbg_update(){
             tile_addr += tile_idx * 16;      // Unsigned index
         int x = (i % 32) * 9;
         int y = (i / 32) * 9;
-        draw_dbg_tile(pixel_buf, WIN_MAP_DBG_W, tile_addr, x, y, mem_copy[BGP_ADDR]);
+        if (cgb){
+            u8 attr = vram_copy[win_map_base_addr - 0x8000 + 0x2000 + i]; // attrs in bank 1
+            draw_dbg_tile_cgb(pixel_buf, WIN_MAP_DBG_W, tile_addr, (attr & 0x8) >> 3,
+                              x, y, attr & 0x7, attr & 0x20, attr & 0x40);
+        } else {
+            draw_dbg_tile(pixel_buf, WIN_MAP_DBG_W, tile_addr, x, y, mem_copy[BGP_ADDR]);
+        }
     }
     SDL_UpdateTexture(dw.texture, NULL, pixel_buf, WIN_MAP_DBG_W * sizeof(u32));
     SDL_RenderClear(dw.renderer);
@@ -327,16 +417,18 @@ void Ui::oam_dbg_update(){
     u32 pixel_buf[OAM_DBG_W * OAM_DBG_H];
     std::fill_n(pixel_buf, OAM_DBG_W * OAM_DBG_H, GRID_COLOR);
 
+    bool cgb      = (gb_model == GB_model::CGB);
     bool tall     = mem_copy[LCDC_ADDR] & 0x04;
     int sprite_h  = tall ? 16 : 8;
 
     for (int i = 0; i < 40; i++){
-        Sprite spr(&mem_copy[0xFE00 + i * 4]);
+        Sprite spr(i, &mem_copy[0xFE00 + i * 4]);
 
         u8 tile_index = spr.tile_index;
         if (tall) tile_index &= 0xFE;
         u16 tile_addr = 0x8000 + tile_index * 16;
-        u8 palette    = mem_copy[spr.palette ? OBP1_ADDR : OBP0_ADDR];
+        u8 palette    = mem_copy[spr.dmg_palette ? OBP1_ADDR : OBP0_ADDR];
+        u8 bank       = cgb ? spr.cgb_bank : 0;
 
         int px = (i % 10) * 9;
         int py = (i / 10) * 17;
@@ -344,13 +436,26 @@ void Ui::oam_dbg_update(){
         for (int r = 0; r < sprite_h; r++){
             int src_row  = spr.y_flip ? (sprite_h - 1 - r) : r;
             u16 row_addr = tile_addr + src_row * 2;
-            u8 lo = mem_copy[row_addr];
-            u8 hi = mem_copy[row_addr + 1];
+            u8 lo, hi;
+            if (cgb){
+                u32 base = (u32)(row_addr - 0x8000) + bank * 0x2000;
+                lo = vram_copy[base];
+                hi = vram_copy[base + 1];
+            } else {
+                lo = mem_copy[row_addr];
+                hi = mem_copy[row_addr + 1];
+            }
             for (int c = 0; c < 8; c++){
                 int bit      = spr.x_flip ? c : (7 - c);
                 int color_id = (((hi >> bit) & 1) << 1) | ((lo >> bit) & 1);
-                int mapped   = (palette >> (color_id * 2)) & 0x3;
-                pixel_buf[(py + r) * OAM_DBG_W + (px + c)] = gb_palette[mapped];
+                u32 color;
+                if (cgb){
+                    color = cgb_color_from_cram(true, spr.cgb_palette_index, color_id);
+                } else {
+                    int mapped = (palette >> (color_id * 2)) & 0x3;
+                    color = gb_palette[mapped];
+                }
+                pixel_buf[(py + r) * OAM_DBG_W + (px + c)] = color;
             }
         }
     }

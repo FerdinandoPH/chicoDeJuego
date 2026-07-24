@@ -1,13 +1,13 @@
 #include "ppu.h"
 
-Pixel_Fetcher::Pixel_Fetcher(Memory& mem) : mem(mem) {
+Pixel_Fetcher::Pixel_Fetcher(Memory& mem, GB_model& gb_model) : mem(mem), gb_model(gb_model) {
     this->state = Pixel_fetcher_state::READ_TILE;
     this->tile_type = Tile_type::BG;
 }
 void Pixel_Fetcher::set_fifo(Pixel_FIFO* fifo){
     this->fifo = fifo;
 }
-Pixel_FIFO::Pixel_FIFO(Memory& mem, Ui* ui, Sprite (&line_oam)[10], int& sprites_in_line, Pixel_Fetcher* fetcher) : mem(mem), ui(ui), line_oam(line_oam), sprites_in_line(sprites_in_line), fetcher(fetcher) {
+Pixel_FIFO::Pixel_FIFO(Memory& mem, Ui* ui, GB_model& gb_model, Sprite (&line_oam)[10], int& sprites_in_line, Pixel_Fetcher* fetcher) : mem(mem), ui(ui), gb_model(gb_model), line_oam(line_oam), sprites_in_line(sprites_in_line), fetcher(fetcher) {
     this->lx = 0;
 }
 
@@ -45,32 +45,62 @@ u8 Pixel_Fetcher::get_line_to_read(){
     switch(tile_type){
         case Tile_type::SPRITE:
             line_to_read += spr_line % 8;
-            if (spr.y_flip) line_to_read = 7 - line_to_read;
+            if (spr.y_flip)
+                line_to_read = 7 - line_to_read;
             break;
         case Tile_type::BG:
             line_to_read += (f_ly + f_scy) % 8;
+            if(gb_model == GB_model::CGB && current_tile.attrs.y_flip)
+                line_to_read = 7 - line_to_read;
             break;
         case Tile_type::WINDOW:
             line_to_read += f_win_ly % 8;
+            if(gb_model == GB_model::CGB && current_tile.attrs.y_flip)
+                line_to_read = 7 - line_to_read;
             break;
     }
     return line_to_read;
 }
 void Pixel_Fetcher::assemble_pixels(){
     bool is_sprite = tile_type == Tile_type::SPRITE;
-    bool is_x_flipped_sprite = is_sprite && spr.x_flip;
+    bool is_x_flipped = (is_sprite && spr.x_flip) || (gb_model == GB_model::CGB && !is_sprite && current_tile.attrs.x_flip);
     for (int i = 0; i < 8; i++){
-        u8 color_index = ((tile_hi >> (7 - i)) & 1) << 1 | ((tile_lo >> (7 - i)) & 1);
-        Pixel pixel = {color_index, Palette::BG, tile_type, is_sprite ? spr.priority : false};
+        u8 color_index = ((current_tile.tile_hi >> (7 - i)) & 1) << 1 | ((current_tile.tile_lo >> (7 - i)) & 1);
+        Pixel pixel = Pixel();
+        pixel.color_index = color_index;
+        pixel.dmg_palette = DMG_Palette::BG;
+        pixel.tile_type = this->tile_type;
         if (is_sprite){
-            pixel.palette = spr.palette ? Palette::OBJ1 : Palette::OBJ0;
+            pixel.spr_idx = spr.oam_idx;
+            pixel.spr_priority = spr.priority;
+            if(gb_model == GB_model::DMG){
+                pixel.dmg_palette = spr.dmg_palette ? DMG_Palette::OBJ1 : DMG_Palette::OBJ0;
+            }else{
+                pixel.cgb_palette_index = spr.cgb_palette_index;
+            }
+        }else{
+            if(gb_model == GB_model::CGB){
+                pixel.cgb_palette_index = current_tile.attrs.cgb_palette_index;
+                pixel.cgb_bgwin_priority = current_tile.attrs.priority;
+            }
         }
-        fetcher_pixel_buffer[is_x_flipped_sprite ? 7 - i : i] = pixel;
+        fetcher_pixel_buffer[is_x_flipped ? 7 - i : i] = pixel;
     }
+}
+Tile_bgwin_attrs Pixel_Fetcher::get_tile_attrs(u16 tile_map_addr){
+    u8 attr = mem.vram_readX(tile_map_addr, 1);
+    Tile_bgwin_attrs attrs;
+    attrs.priority = (attr & 0x80) != 0;
+    attrs.y_flip = (attr & 0x40) != 0;
+    attrs.x_flip = (attr & 0x20) != 0;
+    attrs.cgb_bank = (attr & 0x8) >> 3;
+    attrs.cgb_palette_index = attr & 0x7;
+    return attrs;
 }
 void Pixel_Fetcher::tick(){
     switch(state){
         case Pixel_fetcher_state::READ_TILE:
+            current_tile.type = this->tile_type;
             switch(this->tile_type){
                 case Tile_type::SPRITE:{
                     u8 final_index = spr.tile_index;
@@ -80,7 +110,10 @@ void Pixel_Fetcher::tick(){
                             final_index++;
                         }
                     }
-                    tile_addr = 0x8000 + final_index * 16;
+                    current_tile.addr = 0x8000 + final_index * 16;
+                    if (gb_model == GB_model::CGB){
+                        current_tile.cgb_bank = spr.cgb_bank;
+                    }
                     break;
                 }
                 case Tile_type::BG:{
@@ -89,12 +122,19 @@ void Pixel_Fetcher::tick(){
                     u16 map_addr;
                     map_addr = mem.readX(LCDC_ADDR) & 8 ? 0x9C00 : 0x9800; //LCDC bit 3 specifies the BG tile map area
                     map_addr += ((f_lx + f_scx) % 256) / 8 + (((f_scy + f_ly) % 256) / 8) * 32;
+
+                    if(gb_model == GB_model::CGB){
+                        Tile_bgwin_attrs attrs = get_tile_attrs(map_addr);
+                        current_tile.attrs = attrs;
+                        current_tile.cgb_bank = attrs.cgb_bank;
+                    }
+
                     bool $8800_addressing = !(mem.readX(LCDC_ADDR) & 0x10); //LCDC bit 4 specifies the BG & Window tile data area
                     u8 tile_index = mem.vram_readX(map_addr, 0);
                     if($8800_addressing){
-                        tile_addr = 0x9000 + static_cast<i8>(tile_index) * 16;
+                        current_tile.addr = 0x9000 + static_cast<i8>(tile_index) * 16;
                     }else{
-                        tile_addr = 0x8000 + tile_index * 16;
+                        current_tile.addr = 0x8000 + tile_index * 16;
                     }
                     break;
                 }
@@ -102,12 +142,19 @@ void Pixel_Fetcher::tick(){
                     u16 map_addr;
                     map_addr = mem.readX(LCDC_ADDR) & 0x40 ? 0x9C00 : 0x9800; //LCDC bit 6 specifies the Window tile map area
                     map_addr += ((f_win_lx) / 8) + (f_win_ly / 8) * 32;
+
+                    if(gb_model == GB_model::CGB){
+                        Tile_bgwin_attrs attrs = get_tile_attrs(map_addr);
+                        current_tile.attrs = attrs;
+                        current_tile.cgb_bank = attrs.cgb_bank;
+                    }
+
                     bool $8800_addressing = !(mem.readX(LCDC_ADDR) & 0x10);
                     u8 tile_index = mem.vram_readX(map_addr, 0);
                     if($8800_addressing){
-                        tile_addr = 0x9000 + static_cast<i8>(tile_index) * 16;
+                        current_tile.addr = 0x9000 + static_cast<i8>(tile_index) * 16;
                     }else{
-                        tile_addr = 0x8000 + tile_index * 16;
+                        current_tile.addr = 0x8000 + tile_index * 16;
                     }
                     break;
                 }
@@ -117,15 +164,17 @@ void Pixel_Fetcher::tick(){
         case Pixel_fetcher_state::READ_TILE_2:
             this->state = Pixel_fetcher_state::READ_DATA_LO;
             break;
-        case Pixel_fetcher_state::READ_DATA_LO:
-            tile_lo = mem.vram_readX(tile_addr + get_line_to_read() * 2, 0);
+        case Pixel_fetcher_state::READ_DATA_LO:{
+
+            current_tile.tile_lo = mem.vram_readX(current_tile.addr + get_line_to_read() * 2, gb_model == GB_model::CGB ? current_tile.cgb_bank : 0);
             this->state = Pixel_fetcher_state::READ_DATA_LO_2;
             break;
+        }
         case Pixel_fetcher_state::READ_DATA_LO_2:
             this->state = Pixel_fetcher_state::READ_DATA_HI;
             break;
         case Pixel_fetcher_state::READ_DATA_HI:
-            tile_hi = mem.vram_readX(tile_addr + get_line_to_read() * 2 + 1, 0);
+            current_tile.tile_hi = mem.vram_readX(current_tile.addr + get_line_to_read() * 2 + 1, gb_model == GB_model::CGB ? current_tile.cgb_bank : 0);
             assemble_pixels();
             this->state = Pixel_fetcher_state::READ_DATA_HI_2;
             break;
@@ -187,22 +236,38 @@ void Pixel_FIFO::new_line(){
         increase_win_ly = false;
     }
 }
+u32 Pixel_FIFO::color_cgb_to_rgb(u16 cgb_color){
+    u8 r5 = cgb_color & 0x1F;
+    u8 g5 = (cgb_color >> 5) & 0x1F;
+    u8 b5 = (cgb_color >> 10) & 0x1F;
+    u8 r8 = (r5 << 3) | (r5 >> 2); // Conversion from 5 bit to 8 bit is 255/31 ~= 8.2258, which is approximately 8.25 (or val*8 + val/4)
+    u8 g8 = (g5 << 3) | (g5 >> 2);
+    u8 b8 = (b5 << 3) | (b5 >> 2);
+    u32 final_color = (0xFF << 24) | (r8 << 16) | (g8 << 8) | b8;
+    return final_color;
+}
 u32 Pixel_FIFO::get_final_color(Pixel pixel){
-    u16 palette_addr;
-    switch(pixel.palette){
-        case Palette::OBJ0:
-            palette_addr = OBP0_ADDR;
-            break;
-        case Palette::OBJ1:
-            palette_addr = OBP1_ADDR;
-            break;
-        default: // BG/WIN
-            palette_addr = BGP_ADDR;
-            break;
+    if(gb_model == GB_model::DMG){ //TODO: Maybe create a "force DMG colors on GBC exclusive games" option? Could be fun
+        u16 palette_addr;
+        switch(pixel.dmg_palette){
+            case DMG_Palette::OBJ0:
+                palette_addr = OBP0_ADDR;
+                break;
+            case DMG_Palette::OBJ1:
+                palette_addr = OBP1_ADDR;
+                break;
+            default: // BG/WIN
+                palette_addr = BGP_ADDR;
+                break;
+        }
+        u8 palette_data = mem.readX(palette_addr);
+        u8 color_id = (palette_data >> (pixel.color_index * 2)) & 0x3;
+        return gb_palette[color_id];
+    }else{
+        u16 cgb_color = mem.cram_readX(pixel.tile_type == Tile_type::SPRITE ? Cram_type::OBJ : Cram_type::BGWIN, pixel.cgb_palette_index, pixel.color_index);
+        return color_cgb_to_rgb(cgb_color);
     }
-    u8 palette_data = mem.readX(palette_addr);
-    u8 color_id = (palette_data >> (pixel.color_index * 2)) & 0x3;
-    return gb_palette[color_id];
+
 }
 u8 Pixel_FIFO::get_triggered_wx(){
     return triggered_wx;
@@ -217,19 +282,27 @@ void Pixel_FIFO::push_obj(Pixel* new_pixels){
     for (int i = 0; i < current_obj_fifo_size; i++){
         Pixel curr_pixel = obj_pixels.front();
         obj_pixels.pop_front();
-        this->obj_pixels.push_back(curr_pixel.color_index == 0 && new_pixels[i].color_index != 0 ? new_pixels[i] : curr_pixel);
+        this->obj_pixels.push_back((curr_pixel.color_index == 0 && new_pixels[i].color_index != 0) || (gb_model == GB_model::CGB && new_pixels[i].color_index != 0 && new_pixels[i].spr_idx < curr_pixel.spr_idx) ? new_pixels[i] : curr_pixel);
     }
     for(int i = current_obj_fifo_size; i < 8; i++){
         this->obj_pixels.push_back(new_pixels[i]);
     }
     this->waiting_for_sprite = false;
 }
+
+bool Pixel_FIFO::determine_cgb_obj_priority(Pixel obj_pixel, Pixel bgwin_pixel){
+    if(obj_pixel.color_index == 0) return false;
+    if(bgwin_pixel.color_index == 0) return true;
+    if(!(mem.readX(LCDC_ADDR) & 0x1)) return true;
+    if (!obj_pixel.spr_priority && !bgwin_pixel.cgb_bgwin_priority) return true;
+    return false;
+}
 void Pixel_FIFO::tick(){
     if(waiting_for_sprite) return;
     if(!window_active && wy_cond && wx_cond && (mem.readX(LCDC_ADDR) & 0x20)){
-        if (debug_me){
-            debug_me = false;
-        }
+        // if (debug_me){
+        //     debug_me = false;
+        // }
         window_active = true;
         pixels.clear();
         fetcher->change_to_win();
@@ -269,14 +342,21 @@ void Pixel_FIFO::tick(){
     this->pixels.pop_front();
     if(pixel.tile_type==Tile_type::WINDOW)
         increase_win_ly = true;
-    if (!(mem.readX(LCDC_ADDR) & 1))
+    if (gb_model == GB_model::DMG && !(mem.readX(LCDC_ADDR) & 1))
         pixel.color_index = 0;
     if (!obj_pixels.empty()){
         Pixel obj_pixel = obj_pixels.front();
         obj_pixels.pop_front();
-        if(obj_pixel.color_index != 0 && (pixel.color_index == 0 || !obj_pixel.spr_priority)){ // If the obj pixel is not transparent, and the BG/WIN is either 0 or the sprite has priority(Beware: the sprite priority bit set to 1 actually means that BG/WIN have priority)
-            pixel = obj_pixel;
+        if(gb_model == GB_model::DMG){
+            if(obj_pixel.color_index != 0 && (pixel.color_index == 0 || !obj_pixel.spr_priority)){ // If the obj pixel is not transparent, and the BG/WIN is either 0 or the sprite has priority(Beware: the sprite priority bit set to 1 actually means that BG/WIN have priority)
+                pixel = obj_pixel;
+            }
+        }else{ // CGB: LCDC, OAM attrib, BG attrib
+            if(determine_cgb_obj_priority(obj_pixel, pixel)){
+                pixel = obj_pixel;
+            }
         }
+
     }
     if(lx>=8){
         this->ui->write_pixel(this->lx-8, this->ly, get_final_color(pixel));
@@ -293,7 +373,7 @@ Pixel_Fetcher_ss Pixel_Fetcher::save_state() {
     Pixel_Fetcher_ss state;
     state.spr = this->spr;
     state.spr_line = this->spr_line;
-    state.tile_addr = this->tile_addr;
+    state.current_tile = this->current_tile;
     state.f_scx = this->f_scx;
     state.f_scy = this->f_scy;
     state.f_lx = this->f_lx;
@@ -303,8 +383,6 @@ Pixel_Fetcher_ss Pixel_Fetcher::save_state() {
     state.state = this->state;
     state.tile_type = this->tile_type;
     state.tile_type_bak = this->tile_type_bak;
-    state.tile_lo = this->tile_lo;
-    state.tile_hi = this->tile_hi;
     memcpy(state.fetcher_pixel_buffer, this->fetcher_pixel_buffer, sizeof(this->fetcher_pixel_buffer));
     return state;
 }
@@ -312,7 +390,7 @@ Pixel_Fetcher_ss Pixel_Fetcher::save_state() {
 void Pixel_Fetcher::load_state(const Pixel_Fetcher_ss& state) {
     this->spr = state.spr;
     this->spr_line = state.spr_line;
-    this->tile_addr = state.tile_addr;
+    this->current_tile = state.current_tile;
     this->f_scx = state.f_scx;
     this->f_scy = state.f_scy;
     this->f_lx = state.f_lx;
@@ -322,8 +400,6 @@ void Pixel_Fetcher::load_state(const Pixel_Fetcher_ss& state) {
     this->state = state.state;
     this->tile_type = state.tile_type;
     this->tile_type_bak = state.tile_type_bak;
-    this->tile_lo = state.tile_lo;
-    this->tile_hi = state.tile_hi;
     memcpy(this->fetcher_pixel_buffer, state.fetcher_pixel_buffer, sizeof(this->fetcher_pixel_buffer));
 }
 

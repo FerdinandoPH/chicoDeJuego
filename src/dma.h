@@ -29,6 +29,14 @@ class Dma{
 
 enum class Vdma_mode{GENERAL, HBLANK};
 enum class Vdma_state{IDLE, TRANSFERRING, WAITING_FOR_HBLANK, WAITING_FOR_NEXT_LINE};
+typedef struct{
+    u16 source;
+    u16 dest;
+    u16 bytes_left;
+    u16 bytes_transferred_in_round;
+    Vdma_mode mode;
+    Vdma_state state;
+}Vdma_ss;
 class Vdma{
     private:
         Memory* mem;
@@ -49,4 +57,6 @@ class Vdma{
 
         void tick();
         std::string toString();
+        Vdma_ss save_state();
+        void load_state(const Vdma_ss& state);
 };

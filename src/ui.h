@@ -41,6 +41,9 @@ class Ui{
         u32 video_buffer_render[XRES * YRES];
         DebugWindow debug_windows[NUM_DEBUG_WINDOWS];
         u8 mem_copy[0x10000];
+        u8 vram_copy[0x4000];
+        Cram cram_copy = {};
+        GB_model gb_model = GB_model::DMG;
         void create_debug_window(DebugWindowType type);
         void destroy_debug_window(DebugWindowType type);
         void main_screen_update();
@@ -49,6 +52,11 @@ class Ui{
         void win_map_dbg_update();
         void oam_dbg_update();
         void draw_dbg_tile(u32* pixel_buf, int buf_w, u16 tile_addr, int x, int y, u8 palette);
+        // CGB helpers
+        u32 color_cgb_to_rgb(u16 cgb_color);
+        u32 cgb_color_from_cram(bool obj, u8 pal_idx, u8 color_idx);
+        void draw_dbg_tile_cgb(u32* pixel_buf, int buf_w, u16 tile_addr, u8 bank,
+                               int x, int y, u8 cgb_pal_idx, bool x_flip, bool y_flip);
         bool handle_events();
         std::mutex video_buffer_mutex;
         std::atomic<int> pending_speed_percent{-1}; // -1 = no percentage shown

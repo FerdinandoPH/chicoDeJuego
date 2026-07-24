@@ -125,6 +125,10 @@ bool Memory::load_rom(const char* filename) { //Loads the rom from the file. Als
     if (file) {
         fseek(file, 0, SEEK_END);
         long size = ftell(file);
+        if (size < 0x150){
+            printf("ROM file too small\n");
+            return false;
+        }
         fseek(file, 0, SEEK_SET);
         if (_rom) {
             free(_rom);
@@ -141,18 +145,22 @@ bool Memory::load_rom(const char* filename) { //Loads the rom from the file. Als
         fread(_rom, 1, size, file);
         fclose(file);
 
-        this->rom_header = (Cart_header*)(_rom + 0x100);
+        this->rom_header = *((Cart_header*)(_rom + 0x100));
         //Byte 15 is actually the GBC flag too
-        if((this->rom_header->title[15] == 0x80 || this->rom_header->title[15] == 0xC0) && !prefs->force_dmg)
+        if((this->rom_header.title[15] & 0x80) && !prefs->force_dmg){
             this->gb_model = GB_model::CGB;
-        this->rom_header->title[15] = 0;
+            printf("GBC\n");
+        }
+            
+        this->rom_header.title[15] = 0;
         memcpy(_mem, _rom, 0x8000);
         
-        this->mbc_type = get_MBC(this->rom_header->cart_type);
-        if(cart_ram_size_to_bytes.at(this->rom_header->cart_ram_size) > 0)
-            _cart_ram = (u8*)malloc(cart_ram_size_to_bytes.at(this->rom_header->cart_ram_size));
-        _cart_ram_size = cart_ram_size_to_bytes.at(this->rom_header->cart_ram_size);
-        this->cart_features.has_battery = cart_with_battery.find(this->rom_header->cart_type) != cart_with_battery.end();
+        this->mbc_type = get_MBC(this->rom_header.cart_type);
+        if(cart_ram_size_to_bytes.at(this->rom_header.cart_ram_size) > 0)
+            _cart_ram = (u8*)malloc(cart_ram_size_to_bytes.at(this->rom_header.cart_ram_size));
+        _cart_ram_size = cart_ram_size_to_bytes.at(this->rom_header.cart_ram_size);
+        this->cart_features.has_battery = cart_with_battery.find(this->rom_header.cart_type) != cart_with_battery.end();
+        this->cart_features.has_rtc = this->rom_header.cart_type == 0xF || this->rom_header.cart_type == 0x10;
 
         printf("MBC type: %s\n", mbc_names.at(this->mbc_type).c_str());
         if(this->mbc_type != MBC_type::NONE)
@@ -191,7 +199,7 @@ void Memory::save_cart_ram(){
     }
 }
 Cart_header Memory::get_cart_header(){
-    return this->rom_header ? *this->rom_header : Cart_header{};
+    return this->rom_header;
 }
 
 std::string Memory::get_sha256() {
@@ -241,8 +249,8 @@ void Memory::MBC1_handler(MBC_action action, u16 address, u8 data, MBC_result* r
             auto* mbc1 = std::get_if<MBC1_state>(&this->mbc_state);
             mbc1->ext_ram_enabled = false;
             mbc1->advanced_banking_mode = false;
-            mbc1->rom_banks = rom_size_to_number_of_banks.at(this->rom_header->rom_size);
-            mbc1->cart_ram_banks = cart_ram_size_to_bytes.at(this->rom_header->cart_ram_size) / 0x2000;
+            mbc1->rom_banks = rom_size_to_number_of_banks.at(this->rom_header.rom_size);
+            mbc1->cart_ram_banks = cart_ram_size_to_bytes.at(this->rom_header.cart_ram_size) / 0x2000;
             mbc1->reg_2000_3FFF = 1;
             mbc1->reg_2000_3FFF_mask = static_cast<u8>((1 << static_cast<u8>(std::ceil(std::log2(mbc1->rom_banks)))) - 1);
             if (mbc1->reg_2000_3FFF_mask > 0b00011111) mbc1->reg_2000_3FFF_mask = 0b00011111;
@@ -305,7 +313,7 @@ void Memory::MBC2_handler(MBC_action action, u16 address, u8 data, MBC_result* r
             this->mbc_state.emplace<MBC2_state>();
             auto* mbc2 = std::get_if<MBC2_state>(&this->mbc_state);
             mbc2->ext_ram_enabled = false;
-            mbc2->rom_banks = rom_size_to_number_of_banks.at(this->rom_header->rom_size);
+            mbc2->rom_banks = rom_size_to_number_of_banks.at(this->rom_header.rom_size);
             mbc2->cart_ram_banks = 1;
             memset(mbc2->mbc2_ram, 0xFF, 512);
             break;
@@ -355,8 +363,8 @@ void Memory::MBC3_handler(MBC_action action, u16 address, u8 data, MBC_result* r
             this->mbc_state.emplace<MBC3_state>();
             auto* mbc3 = std::get_if<MBC3_state>(&this->mbc_state);
             mbc3->ext_ram_enabled = false;
-            mbc3->rom_banks = rom_size_to_number_of_banks.at(this->rom_header->rom_size);
-            mbc3->cart_ram_banks = cart_ram_size_to_bytes.at(this->rom_header->cart_ram_size) / 0x2000;
+            mbc3->rom_banks = rom_size_to_number_of_banks.at(this->rom_header.rom_size);
+            mbc3->cart_ram_banks = cart_ram_size_to_bytes.at(this->rom_header.cart_ram_size) / 0x2000;
             
             //If RTC, initialize
             if (cart_features.has_rtc){
@@ -495,8 +503,8 @@ void Memory::MBC5_handler(MBC_action action, u16 address, u8 data, MBC_result* r
             this->mbc_state.emplace<MBC5_state>();
             auto* mbc5 = std::get_if<MBC5_state>(&this->mbc_state);
             mbc5->ext_ram_enabled = false;
-            mbc5->rom_banks = rom_size_to_number_of_banks.at(this->rom_header->rom_size);
-            mbc5->cart_ram_banks = cart_ram_size_to_bytes.at(this->rom_header->cart_ram_size) / 0x2000;
+            mbc5->rom_banks = rom_size_to_number_of_banks.at(this->rom_header.rom_size);
+            mbc5->cart_ram_banks = cart_ram_size_to_bytes.at(this->rom_header.cart_ram_size) / 0x2000;
             mbc5->reg_2000_2FFF = 0;
             mbc5->reg_3000_3FFF = 0;
             mbc5->reg_4000_5FFF = 0;

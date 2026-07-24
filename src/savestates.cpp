@@ -1,7 +1,7 @@
 #include "savestates.h"
 
-SaveStateManager::SaveStateManager(Cpu* cpu, Timer* timer, Ppu* ppu, Memory* mem, Dma* dma, Ui* ui, Apu* apu, int& ticks, int& ticks_since_last_sync)
-    : cpu(cpu), timer(timer), ppu(ppu), mem(mem), dma(dma), ui(ui), apu(apu), ticks(ticks), ticks_since_last_sync(ticks_since_last_sync){}
+SaveStateManager::SaveStateManager(Cpu* cpu, Timer* timer, Ppu* ppu, Memory* mem, Dma* dma, Vdma* vdma, Ui* ui, Apu* apu, int& ticks, int& ticks_since_last_sync)
+    : cpu(cpu), timer(timer), ppu(ppu), mem(mem), dma(dma), vdma(vdma), ui(ui), apu(apu), ticks(ticks), ticks_since_last_sync(ticks_since_last_sync){}
 
 // --- Binary I/O helpers ---
 
@@ -152,22 +152,26 @@ void SaveStateManager::save_state(){
     }
 
     Save_state state;
+    state.version                = SAVESTATE_VERSION;
     state.cpu_state              = cpu->save_state();
     state.timer_state            = timer->save_state();
     state.ppu_state              = ppu->save_state();
     state.mem_state              = mem->save_state();
     state.dma_state              = dma->save_state();
+    state.vdma_state             = vdma->save_state();
     state.ui_state               = ui->save_state();
     state.apu_state              = apu->save_state();
     state.ticks                  = ticks;
     state.ticks_since_last_sync  = ticks_since_last_sync;
     state.sha256                 = mem->get_sha256();
 
+    write_pod(file, state.version);
     write_pod(file, state.cpu_state);
     write_pod(file, state.timer_state);
     write_ppu_ss(file, state.ppu_state);
     write_memory_ss(file, state.mem_state);
     write_pod(file, state.dma_state);
+    write_pod(file, state.vdma_state);
     write_pod(file, state.ui_state);
     write_pod(file, state.apu_state);
     write_pod(file, state.ticks);
@@ -185,11 +189,20 @@ void SaveStateManager::load_state(){
     }
 
     Save_state state;
+    state.version = 0;
+    read_pod(file, state.version);
+    if (state.version != SAVESTATE_VERSION) {
+        fprintf(stderr, "Save state %s has version %d, but version %d is required. Not loading.\n",
+                filename.c_str(), state.version, SAVESTATE_VERSION);
+        fclose(file);
+        return;
+    }
     read_pod(file, state.cpu_state);
     read_pod(file, state.timer_state);
     read_ppu_ss(file, state.ppu_state);
     read_memory_ss(file, state.mem_state);
     read_pod(file, state.dma_state);
+    read_pod(file, state.vdma_state);
     read_pod(file, state.ui_state);
     read_pod(file, state.apu_state);
     read_pod(file, state.ticks);
@@ -207,6 +220,7 @@ void SaveStateManager::load_state(){
     ppu->load_state(state.ppu_state);
     mem->load_state(state.mem_state);
     dma->load_state(state.dma_state);
+    vdma->load_state(state.vdma_state);
     ui->load_state(state.ui_state);
     apu->load_state(state.apu_state);
     ticks                 = state.ticks;

@@ -5,9 +5,9 @@ std::unordered_map<Ppu_mode, std::string> ppu_mode_names = {
 };
 
 
-Ppu::Ppu(Memory& mem, Ui* ui) : mem(mem), ui(ui) {
-    this->fetcher = new Pixel_Fetcher(mem);
-    this->fifo = new Pixel_FIFO(mem, ui, this->line_oam, this->sprites_in_line, this->fetcher);
+Ppu::Ppu(Memory& mem, Ui* ui, GB_model& gb_model) : mem(mem), ui(ui), gb_model(gb_model) {
+    this->fetcher = new Pixel_Fetcher(mem, gb_model);
+    this->fifo = new Pixel_FIFO(mem, ui, gb_model, this->line_oam, this->sprites_in_line, this->fetcher);
     this->fetcher->set_fifo(this->fifo);
     this->ppu_mode = Ppu_mode::VBLANK;
     reset();
@@ -83,7 +83,7 @@ void Ppu::load_oam(){
         for (int j = 0; j < 4; j++){
             data[j] = this->mem.readX(0xFE00 + i*4 + j);
         }
-        this->oam[i] = Sprite(data);
+        this->oam[i] = Sprite(i, data);
     }
 }
 void Ppu::load_line_oam(){
