@@ -9,7 +9,7 @@
 #include "apu.h"
 // Bump whenever the binary layout of any *_ss struct changes, so older
 // (now incompatible) save states are rejected instead of misread.
-constexpr int SAVESTATE_VERSION = 2;
+constexpr int SAVESTATE_VERSION = 4;
 
 struct Save_state{
     int version;

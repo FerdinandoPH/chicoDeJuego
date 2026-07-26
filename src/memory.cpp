@@ -388,6 +388,13 @@ Memory_ss Memory::save_state() {
     state.current_cart_ram_bank = this->current_cart_ram_bank;
 
     memcpy(state.modifiable_mem, this->_mem + 0x8000, sizeof(state.modifiable_mem));
+    state.cram = this->cram;
+    //_mem mirrors the mapped VRAM/WRAM banks, so both buffers are snapshotted
+    //as they are: restoring them verbatim keeps the same mirroring.
+    memcpy(state.vram, this->_vram, sizeof(state.vram));
+    memcpy(state.wram, this->_wram, sizeof(state.wram));
+    state.vram_current_bank = this->_vram_current_bank;
+    state.wram_current_bank = this->_wram_current_bank;
     state.cart_ram.assign(this->_cart_ram, this->_cart_ram + this->_cart_ram_size);
     return state;
 }
@@ -397,6 +404,11 @@ void Memory::load_state(const Memory_ss& state) {
     this->change_banks(state.current_rom0_bank, state.current_rom1_bank, state.current_cart_ram_bank, false);
 
     memcpy(this->_mem + 0x8000, state.modifiable_mem, sizeof(state.modifiable_mem));
+    this->cram = state.cram;
+    memcpy(this->_vram, state.vram, sizeof(state.vram));
+    memcpy(this->_wram, state.wram, sizeof(state.wram));
+    this->_vram_current_bank = state.vram_current_bank;
+    this->_wram_current_bank = state.wram_current_bank;
     if (!state.cart_ram.empty()) {
         memcpy(this->_cart_ram, state.cart_ram.data(), this->_cart_ram_size);
     }

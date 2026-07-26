@@ -71,6 +71,11 @@ static void write_memory_ss(FILE* f, const Memory_ss& ss) {
     write_pod(f, ss.current_rom1_bank);
     write_pod(f, ss.current_cart_ram_bank);
     write_pod(f, ss.modifiable_mem);
+    write_pod(f, ss.cram);
+    write_pod(f, ss.vram);
+    write_pod(f, ss.wram);
+    write_pod(f, ss.vram_current_bank);
+    write_pod(f, ss.wram_current_bank);
     write_vector(f, ss.cart_ram);
 }
 
@@ -81,6 +86,11 @@ static void read_memory_ss(FILE* f, Memory_ss& ss) {
     read_pod(f, ss.current_rom1_bank);
     read_pod(f, ss.current_cart_ram_bank);
     read_pod(f, ss.modifiable_mem);
+    read_pod(f, ss.cram);
+    read_pod(f, ss.vram);
+    read_pod(f, ss.wram);
+    read_pod(f, ss.vram_current_bank);
+    read_pod(f, ss.wram_current_bank);
     read_vector(f, ss.cart_ram);
 }
 

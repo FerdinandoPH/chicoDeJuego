@@ -99,6 +99,13 @@ struct MBC5_state: public MBC_state{
     u8 reg_4000_5FFF = 0;
 };
 using MBC_state_variant = std::variant<std::monostate, MBC1_state, MBC2_state, MBC3_state, MBC5_state>;
+
+struct Cram{
+    u8 bg_palettes[64];
+    u8 obj_palettes[64];
+};
+enum class Cram_type{BGWIN, OBJ};
+
 typedef struct{
     MBC_type mbc_type;
     MBC_state_variant mbc_state;
@@ -106,14 +113,13 @@ typedef struct{
     size_t current_rom1_bank;
     size_t current_cart_ram_bank;
     u8 modifiable_mem[0x10000-0x8000];
+    Cram cram;
+    u8 vram[0x4000];
+    u8 wram[0x8000];
+    u8 vram_current_bank;
+    u8 wram_current_bank;
     std::vector<u8> cart_ram;
 }Memory_ss;
-
-struct Cram{
-    u8 bg_palettes[64];
-    u8 obj_palettes[64];
-};
-enum class Cram_type{BGWIN, OBJ};
 
 class Memory {
 
