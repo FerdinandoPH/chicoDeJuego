@@ -27,22 +27,42 @@
             return NULL;
         }
     }
+#else
+    // Linux / Unix: usamos zenity, que abre un dialogo GTK e imprime la ruta
+    // seleccionada por stdout. En Ubuntu suele venir preinstalado; en Raspberry
+    // Pi OS puede requerir `sudo apt install zenity`.
+    #include <cstdio>
+    #include <cstring>
+    #include <limits.h>
+    char* open_file_dialog() {
+        static char filename[PATH_MAX] = "";
+
+        // 2>/dev/null silencia los warnings de GTK que zenity suele soltar.
+        FILE* pipe = popen(
+            "zenity --file-selection --title=\"Selecciona una ROM\" 2>/dev/null",
+            "r");
+        if (!pipe) return NULL;
+
+        char* ok = fgets(filename, sizeof(filename), pipe);
+        pclose(pipe);
+        if (!ok) return NULL;                      // el usuario cancelo
+
+        filename[strcspn(filename, "\n")] = '\0';  // quitar el '\n' final
+        return filename[0] ? filename : NULL;
+    }
 #endif
 int main(int argc, char **argv) {
-    #ifdef _WIN32
-        if(argc<2){
-            char* filename = open_file_dialog();
-            //char* filename = "D:\\Users\\perez\\Documents\\0_progra\\chicoDeJuego\\testRoms\\sonido\\01-registers.gb";
-            if (filename != NULL) {
-                char **new_argv =(char**) malloc((argc + 1) * sizeof(char *));
-                if (new_argv) {
-                    new_argv[0] = argv[0];
-                    new_argv[1] = filename;
-                    argv = new_argv;
-                    argc++;
-                }
+    if(argc<2){
+        char* filename = open_file_dialog();
+        if (filename != NULL) {
+            char **new_argv =(char**) malloc((argc + 1) * sizeof(char *));
+            if (new_argv) {
+                new_argv[0] = argv[0];
+                new_argv[1] = filename;
+                argv = new_argv;
+                argc++;
             }
         }
-    #endif
+    }
     return emu_run(argc, argv);
 }

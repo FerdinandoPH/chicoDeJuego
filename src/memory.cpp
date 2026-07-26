@@ -134,7 +134,9 @@ void Memory::write(u16 address, u8 data, bool from_cpu) {
                 if(gb_model == GB_model::CGB){
                     u8 bgpi = this->readX(BGPI_ADDR);
                     u8 cram_addr = bgpi & 0x3F;
-                    cram.bg_palettes[cram_addr] = data;
+                    if(!vram_locked)
+                        cram.bg_palettes[cram_addr] = data;
+                    
                     if(bgpi & 0x80){
                         bgpi++;
                         bgpi &= 0xBF;
@@ -152,7 +154,8 @@ void Memory::write(u16 address, u8 data, bool from_cpu) {
                 if(gb_model == GB_model::CGB){
                     u8 obpi = this->readX(OBPI_ADDR);
                     u8 cram_addr = obpi & 0x3F;
-                    cram.obj_palettes[cram_addr] = data;
+                    if(!vram_locked)
+                        cram.obj_palettes[cram_addr] = data;
                     if(obpi & 0x80){
                         obpi++;
                         obpi &= 0xBF;
@@ -196,19 +199,19 @@ u8 Memory::read(u16 address, bool from_cpu) {
             data = mbc_result.data;
         }
         if(dma->transferring && !BETWEEN(address, 0xFF80, 0xFFFE)){ //Only HRAM should be accesible
-            std::cout<<"Reading during DMA transfer at address: "<<numToHexString(address, 4)<<std::endl;
+            //std::cout<<"Reading during DMA transfer at address: "<<numToHexString(address, 4)<<std::endl;
             return 0xFF;
         }
-        if(vram_locked && BETWEEN(address, 0x8000, 0x9FFF)){
-            std::cout<<"Reading from VRAM while locked at address: "<<numToHexString(address, 4)<<std::endl;
+        if(vram_locked && (BETWEEN(address, 0x8000, 0x9FFF) || (gb_model == GB_model::CGB && (address == BGPD_ADDR || address == OBPD_ADDR)))){
+            //std::cout<<"Reading from VRAM while locked at address: "<<numToHexString(address, 4)<<std::endl;
             return 0xFF;
         }
         if(oam_locked && BETWEEN(address, 0xFE00, 0xFE9F)){
-            std::cout<<"Reading from OAM while locked at address: "<<numToHexString(address, 4)<<std::endl;
+            //std::cout<<"Reading from OAM while locked at address: "<<numToHexString(address, 4)<<std::endl;
             return 0xFF;
         }
         if(_cart_ram_size <=0 && BETWEEN(address, 0xA000, 0xBFFF)){
-            std::cout<<"Reading from non-existent RAM at address: "<<numToHexString(address, 4)<<std::endl;
+            //std::cout<<"Reading from non-existent RAM at address: "<<numToHexString(address, 4)<<std::endl;
             return 0xFF;
         }
     }
