@@ -4,20 +4,19 @@
 #include "screen_specs.h"
 #include "memory.h"
 #include "controller.h"
+#include "video.h"
+#include "audio.h"
+#include "system.h"
 #include <mutex>
 #include <atomic>
-#include <SDL3/SDL.h>
 class Debugger;
 
-#define NUM_DEBUG_WINDOWS 4
 #define AUDIO_SAMPLE_BUFFER_SIZE 512
 
-enum class DebugWindowType { TILES = 0, BG_MAP = 1, WIN_MAP = 2, OAM = 3 };
-
+// Core-side state of a debug window. The graphics resources (window, renderer,
+// texture) are owned by the backend; only what the emulator needs in order to
+// decide what to draw lives here.
 struct DebugWindow {
-    SDL_Window* window = nullptr;
-    SDL_Renderer* renderer = nullptr;
-    SDL_Texture* texture = nullptr;
     bool active = false;
     int width;
     int height;
@@ -26,17 +25,20 @@ struct DebugWindow {
 };
 typedef struct{
     u32 video_buffer[XRES*YRES];
-}Ui_ss;
-class Ui{
+}Host_ss;
+
+// Aggregates everything that faces outwards: video, audio, input and time.
+// It knows no concrete platform, only the ports.
+class Host : public IEvent_sink {
     private:
         Memory& mem;
         Controller& controller;
         Debugger* dbg;
         int scale;
-        SDL_Window* main_window;
-        SDL_Renderer* main_renderer;
-        SDL_Texture* main_texture;
-        SDL_AudioStream* audio_stream;
+        IVideo*  video;
+        IAudio*  audio;
+        ISystem* sys;
+        bool quit_requested = false;
         u32 video_buffer_ppu[XRES * YRES];
         u32 video_buffer_render[XRES * YRES];
         DebugWindow debug_windows[NUM_DEBUG_WINDOWS];
@@ -57,7 +59,7 @@ class Ui{
         u32 cgb_color_from_cram(bool obj, u8 pal_idx, u8 color_idx);
         void draw_dbg_tile_cgb(u32* pixel_buf, int buf_w, u16 tile_addr, u8 bank,
                                int x, int y, u8 cgb_pal_idx, bool x_flip, bool y_flip);
-        bool handle_events();
+        void close_all_debug_windows();
         std::mutex video_buffer_mutex;
         std::atomic<int> pending_speed_percent{-1}; // -1 = no percentage shown
         int shown_speed_percent = -2;               // sentinel forces first apply
@@ -67,7 +69,7 @@ class Ui{
         size_t audio_samples_buffer_index = 0;
     public:
         std::atomic<bool> debug_toggle_requested[NUM_DEBUG_WINDOWS] = {};
-        Ui(Memory& mem, Controller& controller, int scale = 4);
+        Host(Memory& mem, Controller& controller, int scale = 4);
         void init();
         bool update();
         bool is_debug_window_active(DebugWindowType type);
@@ -76,13 +78,20 @@ class Ui{
         void clear_main_screen();
         void set_speed_percent(int percent);
         void clear_speed_percent();
-        Ui_ss save_state();
-        void load_state(const Ui_ss& state);
+        Host_ss save_state();
+        void load_state(const Host_ss& state);
         void sync_video_buffer();
 
         void push_audio_sample(float left, float right);
         int get_audio_queue_size();
         void clear_audio_queue();
 
-        void delay(int ms);
+        bool open_with_default_app(const char* path);
+        void delay_us(u64 us);
+
+        // IEvent_sink: what the backend reports back to us.
+        void on_key(Host_key k, Controller_event_type t) override;
+        void on_quit() override;
+        void on_break() override;
+        void on_aux_closed(DebugWindowType w) override;
 };

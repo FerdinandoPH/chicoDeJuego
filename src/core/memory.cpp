@@ -255,21 +255,19 @@ u16 Memory::cram_readX(Cram_type type, u8 palette_idx, u8 color_idx) {
     return color;
 }
 
-void Memory::dump() { //Writes the current state of memory into a file and opens it with a HEX editor
+bool Memory::dump() { //Writes the current state of memory into a file. Opening it with a HEX editor is the caller's job.
     FILE* file = fopen("mem.hexd", "wb");
-    if (file) {
-        size_t writtenData = fwrite(_mem, 1, 0x10000, file);
-        if (writtenData != 0x10000) {
-            printf("Error writing mem.hexd\n");
-        }
-        fclose(file);
-        #ifdef _WIN32
-            createProcess("mem.hexd");
-        #endif
-    }
-    else {
+    if (!file) {
         printf("Error writing mem.hexd\n");
+        return false;
     }
+    size_t writtenData = fwrite(_mem, 1, 0x10000, file);
+    fclose(file);
+    if (writtenData != 0x10000) {
+        printf("Error writing mem.hexd\n");
+        return false;
+    }
+    return true;
 }
 
 void Memory::get_mem_ui_copy(u8* ptr){

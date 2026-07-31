@@ -7,7 +7,7 @@ Pixel_Fetcher::Pixel_Fetcher(Memory& mem, GB_model& gb_model) : mem(mem), gb_mod
 void Pixel_Fetcher::set_fifo(Pixel_FIFO* fifo){
     this->fifo = fifo;
 }
-Pixel_FIFO::Pixel_FIFO(Memory& mem, Ui* ui, GB_model& gb_model, Sprite (&line_oam)[10], int& sprites_in_line, Pixel_Fetcher* fetcher) : mem(mem), ui(ui), gb_model(gb_model), line_oam(line_oam), sprites_in_line(sprites_in_line), fetcher(fetcher) {
+Pixel_FIFO::Pixel_FIFO(Memory& mem, Host* host, GB_model& gb_model, Sprite (&line_oam)[10], int& sprites_in_line, Pixel_Fetcher* fetcher) : mem(mem), host(host), gb_model(gb_model), line_oam(line_oam), sprites_in_line(sprites_in_line), fetcher(fetcher) {
     this->lx = 0;
 }
 
@@ -359,7 +359,7 @@ void Pixel_FIFO::tick(){
 
     }
     if(lx>=8){
-        this->ui->write_pixel(this->lx-8, this->ly, get_final_color(pixel));
+        this->host->write_pixel(this->lx-8, this->ly, get_final_color(pixel));
     }
     if(!window_active && lx == this->mem.readX(WX_ADDR)){
         this->wx_cond = true;

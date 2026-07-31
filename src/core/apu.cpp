@@ -1,8 +1,8 @@
 #include "apu.h"
 #include "memory.h"
-#include "ui.h"
+#include "host.h"
 #include "cpu.h"
-Apu::Apu(Memory& mem, Cpu& cpu, Ui& ui) : mem(mem), cpu(cpu), ui(ui), pulse_1(mem), pulse_2(mem), wave(mem), noise(mem) {
+Apu::Apu(Memory& mem, Cpu& cpu, Host& host) : mem(mem), cpu(cpu), host(host), pulse_1(mem), pulse_2(mem), wave(mem), noise(mem) {
     internal_reset();
 }
 
@@ -166,7 +166,7 @@ void Apu::generate_sample(){
     if (stereo_right[3]) right_sample += noise_sample;
     left_sample = dc_block(left_sample, left_cap) * 0.25 * (left_volume / 8.0);
     right_sample = dc_block(right_sample, right_cap) * 0.25 * (right_volume / 8.0);
-    ui.push_audio_sample(left_sample, right_sample);
+    host.push_audio_sample(left_sample, right_sample);
 }
 void Apu::tick(){
     if (enabled){

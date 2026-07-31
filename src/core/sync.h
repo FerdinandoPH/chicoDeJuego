@@ -4,7 +4,7 @@
 
 class Controller;
 class Memory;
-class Ui;
+class Host;
 class Emu_sync{
     private:
         std::chrono::time_point<std::chrono::high_resolution_clock> last_time;
@@ -16,10 +16,10 @@ class Emu_sync{
         int& ticks_since_last_sync;
         Memory* mem;
         Controller* controller;
-        Ui* ui;
+        Host* host;
         bool turbo_mode = false;
     public:
-        Emu_sync(int& ticks, int& ticks_since_last_sync, Memory* mem, Controller* controller, Ui* ui);
+        Emu_sync(int& ticks, int& ticks_since_last_sync, Memory* mem, Controller* controller, Host* host);
         void sync();
         void set_turbo_mode(bool enabled);
         void reset_speed_window();

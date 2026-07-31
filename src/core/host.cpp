@@ -1,4 +1,5 @@
-#include "ui.h"
+#include "host.h"
+#include "backend.h"
 #include "debugger.h"
 #include <cstdio>
 
@@ -9,7 +10,11 @@ static const struct { int w; int h; int scale; const char* title; } dbg_window_i
     { OAM_DBG_W,     OAM_DBG_H,     3, "OAM Sprites"  },
 };
 
-Ui::Ui(Memory& mem, Controller& controller, int scale) :  mem(mem), controller(controller), scale(scale), video_buffer_mutex() {
+Host::Host(Memory& mem, Controller& controller, int scale) :  mem(mem), controller(controller), scale(scale), video_buffer_mutex() {
+    // The linker resolves these factories against whichever backend is built.
+    this->video = create_video();
+    this->audio = create_audio();
+    this->sys   = create_system();
     for (int i = 0; i < NUM_DEBUG_WINDOWS; i++){
         debug_windows[i].width  = dbg_window_info[i].w;
         debug_windows[i].height = dbg_window_info[i].h;
@@ -17,140 +22,68 @@ Ui::Ui(Memory& mem, Controller& controller, int scale) :  mem(mem), controller(c
         debug_windows[i].title  = dbg_window_info[i].title;
     }
 }
-void Ui::init(){
-    SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
-    SDL_AudioSpec audio_spec;
-    audio_spec.freq = 48000;
-    audio_spec.format = SDL_AUDIO_F32;
-    audio_spec.channels = 2;
-    this->audio_stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &audio_spec, nullptr, nullptr);
-    SDL_ResumeAudioStreamDevice(this->audio_stream);
-    SDL_CreateWindowAndRenderer("Chico de Juego", XRES*scale, YRES*scale, 0, &this->main_window, &this->main_renderer);
-    SDL_SetWindowTitle(this->main_window, "Chico de Juego");
-    this->main_texture = SDL_CreateTexture(this->main_renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, XRES, YRES);
-    SDL_SetRenderVSync(this->main_renderer, 1);
-    SDL_SetTextureScaleMode(this->main_texture, SDL_SCALEMODE_NEAREST);
-    SDL_SetRenderLogicalPresentation(this->main_renderer, XRES, YRES, SDL_LOGICAL_PRESENTATION_INTEGER_SCALE);
+void Host::init(){
+    this->video->init(XRES, YRES, this->scale);
+    this->audio->init(48000, 2);
 }
-void Ui::set_debugger(Debugger* dbg){
+void Host::set_debugger(Debugger* dbg){
     this->dbg = dbg;
 }
 
 // --- Debug window lifecycle ---
 
-void Ui::create_debug_window(DebugWindowType type){
+void Host::create_debug_window(DebugWindowType type){
     int i = (int)type;
     DebugWindow& dw = debug_windows[i];
     if (dw.active) return;
 
     // The Tile Viewer shows both VRAM banks in CGB mode (bank 0 left, bank 1
-    // right), so it needs double width.
+    // right), so it needs double width. This is Game Boy knowledge, so it stays
+    // here and the already-computed width is handed to the backend.
     if (type == DebugWindowType::TILES)
         dw.width = (mem.get_gb_model() == GB_model::CGB) ? (TILE_DBG_W * 2) : TILE_DBG_W;
 
-    SDL_CreateWindowAndRenderer(dw.title,
-        dw.width * dw.scale, dw.height * dw.scale,
-        0, &dw.window, &dw.renderer);
-    dw.texture = SDL_CreateTexture(dw.renderer,
-        SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
-        dw.width, dw.height);
-    SDL_SetTextureScaleMode(dw.texture, SDL_SCALEMODE_NEAREST);
-    SDL_SetRenderLogicalPresentation(dw.renderer,
-        dw.width, dw.height, SDL_LOGICAL_PRESENTATION_INTEGER_SCALE);
-
-    int main_x, main_y, main_w, main_h;
-    SDL_GetWindowPosition(main_window, &main_x, &main_y);
-    SDL_GetWindowSize(main_window, &main_w, &main_h);
-    int y = main_y;
-    for (int j = 0; j < i; j++)
-        if (debug_windows[j].active)
-            y += debug_windows[j].height * debug_windows[j].scale;
-    SDL_SetWindowPosition(dw.window, main_x + main_w, y);
-
+    video->open_aux(type, dw.width, dw.height, dw.scale, dw.title);
     dw.active = true;
 }
-void Ui::destroy_debug_window(DebugWindowType type){
-    int i = (int)type;
-    DebugWindow& dw = debug_windows[i];
+void Host::destroy_debug_window(DebugWindowType type){
+    DebugWindow& dw = debug_windows[(int)type];
     if (!dw.active) return;
 
-    SDL_DestroyTexture(dw.texture);
-    SDL_DestroyRenderer(dw.renderer);
-    SDL_DestroyWindow(dw.window);
-    dw.texture  = nullptr;
-    dw.renderer = nullptr;
-    dw.window   = nullptr;
-    dw.active   = false;
+    video->close_aux(type);
+    dw.active = false;
 }
-bool Ui::is_debug_window_active(DebugWindowType type){
+void Host::close_all_debug_windows(){
+    for (int i = 0; i < NUM_DEBUG_WINDOWS; i++)
+        destroy_debug_window((DebugWindowType)i);
+}
+bool Host::is_debug_window_active(DebugWindowType type){
     return debug_windows[(int)type].active;
 }
 
 // --- Events ---
+// The pumping itself lives in the backend (pump_events). Only the reactions are
+// here, and they are the very same lines that used to sit inline inside the SDL
+// switch.
 
-bool Ui::handle_events(){
-    SDL_Event event;
-    while (SDL_PollEvent(&event) > 0){
-        switch (event.type){
-            case SDL_EVENT_QUIT:
-                for (int i = 0; i < NUM_DEBUG_WINDOWS; i++)
-                    destroy_debug_window((DebugWindowType)i);
-                SDL_DestroyWindow(this->main_window);
-                SDL_DestroyRenderer(this->main_renderer);
-                SDL_DestroyTexture(this->main_texture);
-                return false;
-
-            case SDL_EVENT_WINDOW_CLOSE_REQUESTED: {
-                Uint32 windowID = event.window.windowID;
-
-                // Check if a debug window was closed
-                bool was_debug = false;
-                for (int i = 0; i < NUM_DEBUG_WINDOWS; i++){
-                    if (debug_windows[i].active &&
-                        SDL_GetWindowID(debug_windows[i].window) == windowID){
-                        destroy_debug_window((DebugWindowType)i);
-                        was_debug = true;
-                        break;
-                    }
-                }
-                if (was_debug) break;
-
-                // Main window closed -> quit
-                if (windowID == SDL_GetWindowID(this->main_window)){
-                    for (int i = 0; i < NUM_DEBUG_WINDOWS; i++)
-                        destroy_debug_window((DebugWindowType)i);
-                    SDL_DestroyWindow(this->main_window);
-                    SDL_DestroyRenderer(this->main_renderer);
-                    SDL_DestroyTexture(this->main_texture);
-                    return false;
-                }
-                break;
-            }
-            case SDL_EVENT_KEY_DOWN:
-                switch (event.key.scancode){
-                    case SDL_SCANCODE_ESCAPE:
-                        this->dbg->dbg_level = FULL_DBG;
-                        break;
-                    default:
-                        if (!event.key.repeat)
-                            this->controller.enqueue_event(event.key.scancode, Controller_event_type::KEY_DOWN);
-                        break;
-                }
-                break;
-            case SDL_EVENT_KEY_UP:
-                if (!event.key.repeat)
-                    this->controller.enqueue_event(event.key.scancode, Controller_event_type::KEY_UP);
-                break;
-            default:
-                break;
-        }
-    }
-    return true;
+void Host::on_key(Host_key k, Controller_event_type t){
+    this->controller.enqueue_event(k, t);
+}
+void Host::on_quit(){
+    this->quit_requested = true;
+}
+void Host::on_break(){
+    this->dbg->dbg_level = FULL_DBG;
+}
+void Host::on_aux_closed(DebugWindowType w){
+    // The user closed the window from the window manager: release it just as if
+    // it had been toggled off from the debug menu.
+    destroy_debug_window(w);
 }
 
 // --- Update ---
 
-bool Ui::update() {
+bool Host::update() {
     // Process pending debug window toggles
     for (int i = 0; i < NUM_DEBUG_WINDOWS; i++){
         if (debug_toggle_requested[i]){
@@ -162,8 +95,13 @@ bool Ui::update() {
         }
     }
 
-    if(!this->handle_events())
+    this->sys->pump_events(*this);
+    if (this->quit_requested){
+        close_all_debug_windows();
+        this->video->shutdown();
+        this->audio->shutdown();
         return false;
+    }
 
     this->update_speed_title();
     this->mem.get_mem_ui_copy(this->mem_copy);
@@ -179,34 +117,27 @@ bool Ui::update() {
 }
 
 // --- Main screen ---
-void Ui::clear_main_screen(){
+void Host::clear_main_screen(){
     std::scoped_lock<std::mutex> lock(video_buffer_mutex);
     std::fill_n(this->video_buffer_render, XRES * YRES, 0xFF000000); // Clear to black
-    SDL_UpdateTexture(this->main_texture, NULL, this->video_buffer_render, XRES * sizeof(u32));
-    SDL_RenderClear(this->main_renderer);
-    SDL_RenderTexture(this->main_renderer, this->main_texture, NULL, NULL);
-    SDL_RenderPresent(this->main_renderer);
+    video->present(this->video_buffer_render);
 }
-void Ui::write_pixel(int x, int y, u32 color){
+void Host::write_pixel(int x, int y, u32 color){
     if (x < 0 || x >= XRES || y < 0 || y >= YRES) return;
     this->video_buffer_ppu[y * XRES + x] = color;
 }
-void Ui::sync_video_buffer(){
+void Host::sync_video_buffer(){
     std::scoped_lock<std::mutex> lock(video_buffer_mutex);
     memcpy(this->video_buffer_render, this->video_buffer_ppu, sizeof(this->video_buffer_ppu));
 }
-void Ui::main_screen_update(){
-    video_buffer_mutex.lock();
-    SDL_UpdateTexture(this->main_texture, NULL, this->video_buffer_render, XRES * sizeof(u32));
-    video_buffer_mutex.unlock();
-    SDL_RenderClear(this->main_renderer);
-    SDL_RenderTexture(this->main_renderer, this->main_texture, NULL, NULL);
-    SDL_RenderPresent(this->main_renderer);
+void Host::main_screen_update(){
+    std::scoped_lock<std::mutex> lock(video_buffer_mutex);
+    video->present(this->video_buffer_render);
 }
 
 // --- Debug window update stubs (rendering logic will be added later) ---
 
-void Ui::draw_dbg_tile(u32* pixel_buf, int buf_w, u16 tile_addr, int x, int y, u8 palette){
+void Host::draw_dbg_tile(u32* pixel_buf, int buf_w, u16 tile_addr, int x, int y, u8 palette){
     /*
     draw_tile
     Parameters:
@@ -229,7 +160,7 @@ void Ui::draw_dbg_tile(u32* pixel_buf, int buf_w, u16 tile_addr, int x, int y, u
 }
 
 // Converts a 15-bit CGB color (BGR555) to ARGB8888. Mirrors the PPU renderer.
-u32 Ui::color_cgb_to_rgb(u16 cgb_color){
+u32 Host::color_cgb_to_rgb(u16 cgb_color){
     u8 r5 = cgb_color & 0x1F;
     u8 g5 = (cgb_color >> 5) & 0x1F;
     u8 b5 = (cgb_color >> 10) & 0x1F;
@@ -240,7 +171,7 @@ u32 Ui::color_cgb_to_rgb(u16 cgb_color){
 }
 
 // Resolves a color from the CGB palette RAM snapshot (bg or obj palettes).
-u32 Ui::cgb_color_from_cram(bool obj, u8 pal_idx, u8 color_idx){
+u32 Host::cgb_color_from_cram(bool obj, u8 pal_idx, u8 color_idx){
     pal_idx &= 7;
     color_idx &= 3;
     const u8* palettes = obj ? cram_copy.obj_palettes : cram_copy.bg_palettes;
@@ -251,7 +182,7 @@ u32 Ui::cgb_color_from_cram(bool obj, u8 pal_idx, u8 color_idx){
 
 // Draws an 8x8 tile using CGB attributes: reads tile data from the given VRAM
 // bank, applies the BG/Win CGB palette from CRAM, and honors x/y flip.
-void Ui::draw_dbg_tile_cgb(u32* pixel_buf, int buf_w, u16 tile_addr, u8 bank,
+void Host::draw_dbg_tile_cgb(u32* pixel_buf, int buf_w, u16 tile_addr, u8 bank,
                            int x, int y, u8 cgb_pal_idx, bool x_flip, bool y_flip){
     for (int row = 0; row < 8; row++){
         int src_row = y_flip ? (7 - row) : row;
@@ -266,7 +197,7 @@ void Ui::draw_dbg_tile_cgb(u32* pixel_buf, int buf_w, u16 tile_addr, u8 bank,
     }
 }
 
-void Ui::tiles_dbg_update(){
+void Host::tiles_dbg_update(){
     DebugWindow& dw = debug_windows[(int)DebugWindowType::TILES];
     if (!dw.active) return;
 
@@ -306,12 +237,9 @@ void Ui::tiles_dbg_update(){
         }
     }
 
-    SDL_UpdateTexture(dw.texture, NULL, pixel_buf, buf_w * sizeof(u32));
-    SDL_RenderClear(dw.renderer);
-    SDL_RenderTexture(dw.renderer, dw.texture, NULL, NULL);
-    SDL_RenderPresent(dw.renderer);
+    video->present_aux(DebugWindowType::TILES, pixel_buf, buf_w);
 }
-void Ui::bg_map_dbg_update(){
+void Host::bg_map_dbg_update(){
     DebugWindow& dw = debug_windows[(int)DebugWindowType::BG_MAP];
     if (!dw.active) return;
     u32 pixel_buf[BG_MAP_DBG_W * BG_MAP_DBG_H];
@@ -374,12 +302,9 @@ void Ui::bg_map_dbg_update(){
         pixel_buf[by * BG_MAP_DBG_W + gb_to_dbg((scx + XRES - 1) % 256)] = VIEWPORT_COLOR; // right
     }
 
-    SDL_UpdateTexture(dw.texture, NULL, pixel_buf, BG_MAP_DBG_W * sizeof(u32));
-    SDL_RenderClear(dw.renderer);
-    SDL_RenderTexture(dw.renderer, dw.texture, NULL, NULL);
-    SDL_RenderPresent(dw.renderer);
+    video->present_aux(DebugWindowType::BG_MAP, pixel_buf, BG_MAP_DBG_W);
 }
-void Ui::win_map_dbg_update(){
+void Host::win_map_dbg_update(){
     DebugWindow& dw = debug_windows[(int)DebugWindowType::WIN_MAP];
     if (!dw.active) return;
     u32 pixel_buf[WIN_MAP_DBG_W * WIN_MAP_DBG_H];
@@ -405,12 +330,9 @@ void Ui::win_map_dbg_update(){
             draw_dbg_tile(pixel_buf, WIN_MAP_DBG_W, tile_addr, x, y, mem_copy[BGP_ADDR]);
         }
     }
-    SDL_UpdateTexture(dw.texture, NULL, pixel_buf, WIN_MAP_DBG_W * sizeof(u32));
-    SDL_RenderClear(dw.renderer);
-    SDL_RenderTexture(dw.renderer, dw.texture, NULL, NULL);
-    SDL_RenderPresent(dw.renderer);
+    video->present_aux(DebugWindowType::WIN_MAP, pixel_buf, WIN_MAP_DBG_W);
 }
-void Ui::oam_dbg_update(){
+void Host::oam_dbg_update(){
     DebugWindow& dw = debug_windows[(int)DebugWindowType::OAM];
     if (!dw.active) return;
 
@@ -460,62 +382,61 @@ void Ui::oam_dbg_update(){
         }
     }
 
-    SDL_UpdateTexture(dw.texture, NULL, pixel_buf, OAM_DBG_W * sizeof(u32));
-    SDL_RenderClear(dw.renderer);
-    SDL_RenderTexture(dw.renderer, dw.texture, NULL, NULL);
-    SDL_RenderPresent(dw.renderer);
+    video->present_aux(DebugWindowType::OAM, pixel_buf, OAM_DBG_W);
 }
 
-void Ui::set_speed_percent(int percent){
+void Host::set_speed_percent(int percent){
     this->pending_speed_percent.store(percent, std::memory_order_relaxed);
 }
-void Ui::clear_speed_percent(){
+void Host::clear_speed_percent(){
     this->pending_speed_percent.store(-1, std::memory_order_relaxed);
 }
-void Ui::update_speed_title(){
+void Host::update_speed_title(){
     int p = this->pending_speed_percent.load(std::memory_order_relaxed);
     if (p == this->shown_speed_percent) return;
     this->shown_speed_percent = p;
     if (p < 0){
-        SDL_SetWindowTitle(this->main_window, "Chico de Juego");
+        video->set_title("Chico de Juego");
     } else {
         char title[64];
         std::snprintf(title, sizeof(title), "Chico de Juego - %d%%", p);
-        SDL_SetWindowTitle(this->main_window, title);
+        video->set_title(title);
     }
 }
 
-void Ui::push_audio_sample(float left, float right){
+void Host::push_audio_sample(float left, float right){
     audio_samples_buffer[audio_samples_buffer_index++] = left;
     audio_samples_buffer[audio_samples_buffer_index++] = right;
     if (audio_samples_buffer_index >= AUDIO_SAMPLE_BUFFER_SIZE * 2){
-        SDL_PutAudioStreamData(this->audio_stream, audio_samples_buffer, AUDIO_SAMPLE_BUFFER_SIZE * 2 * sizeof(float));
+        audio->submit(audio_samples_buffer, AUDIO_SAMPLE_BUFFER_SIZE * 2);
         audio_samples_buffer_index = 0;
     }
 }
-int Ui::get_audio_queue_size(){
-    return SDL_GetAudioStreamAvailable(this->audio_stream);
+int Host::get_audio_queue_size(){
+    return audio->queued_bytes();
 }
-void Ui::clear_audio_queue(){
-    SDL_ClearAudioStream(this->audio_stream);
+void Host::clear_audio_queue(){
+    audio->clear();
 }
 
-Ui_ss Ui::save_state(){
-    Ui_ss state;
+Host_ss Host::save_state(){
+    Host_ss state;
     {
         std::scoped_lock<std::mutex> lock(video_buffer_mutex);
         std::copy(std::begin(this->video_buffer_ppu), std::end(this->video_buffer_ppu), std::begin(state.video_buffer));
     }
     return state;
 }
-void Ui::load_state(const Ui_ss& state){
+void Host::load_state(const Host_ss& state){
     std::scoped_lock<std::mutex> lock(video_buffer_mutex);
     std::copy(std::begin(state.video_buffer), std::end(state.video_buffer), std::begin(this->video_buffer_ppu));
-    SDL_UpdateTexture(this->main_texture, NULL, this->video_buffer_ppu, XRES * sizeof(u32));
-    SDL_RenderClear(this->main_renderer);
-    SDL_RenderTexture(this->main_renderer, this->main_texture, NULL, NULL);
-    SDL_RenderPresent(this->main_renderer);
+    video->present(this->video_buffer_ppu);
 }
-void Ui::delay(int ms){
-    SDL_DelayPrecise(ms * 1000);
+bool Host::open_with_default_app(const char* path){
+    return sys->open_with_default_app(path);
+}
+// The parameter is microseconds: it used to be named "ms" by mistake, even
+// though the arithmetic (us * 1000 = ns) was always right.
+void Host::delay_us(u64 us){
+    sys->delay_ns(us * 1000);
 }

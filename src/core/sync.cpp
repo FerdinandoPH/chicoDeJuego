@@ -1,9 +1,8 @@
 #include "sync.h"
 #include "controller.h"
 #include "memory.h"
-#include "ui.h"
-#include <SDL3/SDL.h>
-Emu_sync::Emu_sync(int& ticks, int& ticks_since_last_sync, Memory* mem, Controller* controller, Ui* ui) : ticks(ticks), ticks_since_last_sync(ticks_since_last_sync), mem(mem), controller(controller), ui(ui) {
+#include "host.h"
+Emu_sync::Emu_sync(int& ticks, int& ticks_since_last_sync, Memory* mem, Controller* controller, Host* host) : ticks(ticks), ticks_since_last_sync(ticks_since_last_sync), mem(mem), controller(controller), host(host) {
     this->last_time = std::chrono::high_resolution_clock::now();
     this->last_title_time = this->last_time;
 }
@@ -11,7 +10,7 @@ Emu_sync::Emu_sync(int& ticks, int& ticks_since_last_sync, Memory* mem, Controll
 void Emu_sync::sync(){
     ticks_since_last_sync = 0;
     mem->sync_mem_ui_copy();
-    ui->sync_video_buffer();
+    host->sync_video_buffer();
     controller->process_events();
 
     // Speed indicator: count synced frames over ~1s windows and forward the
@@ -22,22 +21,22 @@ void Emu_sync::sync(){
     if (title_elapsed_ms >= 1000){
         double expected_frames = 59.7275 * (title_elapsed_ms / 1000.0);
         int percent = (int)((this->frames_since_title / expected_frames) * 100.0 + 0.5);
-        ui->set_speed_percent(percent);
+        host->set_speed_percent(percent);
         this->frames_since_title = 0;
         this->last_title_time = now_title;
     }
 
     // Now, delay to synchronize with real time (using audio as a reference)
-    int audio_bytes_queued = ui->get_audio_queue_size();
+    int audio_bytes_queued = host->get_audio_queue_size();
     if(this->turbo_mode){
         if (audio_bytes_queued > audio_bytes_per_sec / 30){
-            ui->clear_audio_queue();
-            audio_bytes_queued = ui->get_audio_queue_size();
+            host->clear_audio_queue();
+            audio_bytes_queued = host->get_audio_queue_size();
         }
     }
     if (audio_bytes_queued > target_bytes){
         double excess = (audio_bytes_queued - target_bytes) / (double)audio_bytes_per_sec;
-        ui->delay((int)(excess * 1e6));
+        host->delay_us((u64)(excess * 1e6));
     }
     // Old approach with chrono
     // auto current_time = std::chrono::high_resolution_clock::now();

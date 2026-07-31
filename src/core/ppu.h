@@ -2,7 +2,7 @@
 #include "utils.h"
 #include "screen_specs.h"
 #include "memory.h"
-#include "ui.h"
+#include "host.h"
 #include <unordered_map>
 #include <deque>
 
@@ -126,7 +126,7 @@ typedef struct{
 class Pixel_FIFO{
     private:
         Memory& mem;
-        Ui* ui;
+        Host* host;
         GB_model& gb_model;
         Sprite (&line_oam)[10];
         int& sprites_in_line;
@@ -150,7 +150,7 @@ class Pixel_FIFO{
         u32 get_final_color(Pixel pixel);
         u32 color_cgb_to_rgb(u16 cgb_color);
     public:
-        Pixel_FIFO(Memory& mem, Ui* ui, GB_model& gb_model, Sprite (&line_oam)[10], int& sprites_in_line, Pixel_Fetcher* fetcher);
+        Pixel_FIFO(Memory& mem, Host* host, GB_model& gb_model, Sprite (&line_oam)[10], int& sprites_in_line, Pixel_Fetcher* fetcher);
         void new_line();
         void new_frame();
         u8 get_lx();
@@ -181,7 +181,7 @@ typedef struct{
 class Ppu{
     private:
         Memory& mem;
-        Ui* ui;
+        Host* host;
         GB_model& gb_model;
         Pixel_Fetcher* fetcher;
         Pixel_FIFO* fifo;
@@ -199,7 +199,7 @@ class Ppu{
         Sprite oam[40];
         Sprite line_oam[10];
         int sprites_in_line;
-        Ppu(Memory& mem, Ui* ui, GB_model& gb_model);
+        Ppu(Memory& mem, Host* host, GB_model& gb_model);
         Ppu_mode get_mode(){return ppu_mode;};
         void tick();
         void reset();

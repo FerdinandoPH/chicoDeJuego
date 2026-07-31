@@ -178,7 +178,7 @@ class Memory {
         bool is_protected = true;
         Memory(GB_model& gb_model, Prefs* prefs);
         ~Memory();
-        void dump();
+        bool dump();
         void get_mem_ui_copy(u8* ptr);
         void get_vram_ui_copy(u8* ptr);
         void get_cram_ui_copy(Cram* ptr);

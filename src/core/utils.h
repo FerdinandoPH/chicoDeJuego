@@ -10,10 +10,6 @@
 #include <variant>
 #include <iostream>
 
-#ifdef _WIN32
-    #include <windows.h>
-    void createProcess(const char *proc);
-#endif
 typedef uint8_t u8;
 typedef int8_t i8;
 typedef uint16_t u16;

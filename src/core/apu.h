@@ -3,7 +3,7 @@
 #include "apu_channels.h"
 #include "hw_reg_def.h"
 class Memory;
-class Ui;
+class Host;
 class Cpu;
 enum class Audio_reg_write_origin{CPU, APU};
 struct Apu_ss {
@@ -24,7 +24,7 @@ class Apu{
     private:
         Memory& mem;
         Cpu& cpu;
-        Ui& ui;
+        Host& host;
         bool enabled = true;
         u8 last_div_bit = 0;
         u8 div_bit_to_check = 4;
@@ -43,7 +43,7 @@ class Apu{
         void generate_sample();
         double dc_block(double in, double& cap);
     public:
-        Apu(Memory& mem, Cpu& cpu, Ui& ui);
+        Apu(Memory& mem, Cpu& cpu, Host& host);
         void internal_reset();
         u8 write(u16 addr, u8 data);
         void tick();

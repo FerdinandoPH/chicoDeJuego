@@ -5,7 +5,7 @@
 #include "memory.h"
 #include "ppu.h"
 #include "timer.h"
-#include "ui.h"
+#include "host.h"
 #include "apu.h"
 // Bump whenever the binary layout of any *_ss struct changes, so older
 // (now incompatible) save states are rejected instead of misread.
@@ -19,7 +19,7 @@ struct Save_state{
     Memory_ss mem_state;
     Dma_ss dma_state;
     Vdma_ss vdma_state;
-    Ui_ss ui_state;
+    Host_ss host_state;
     Apu_ss apu_state;
     int ticks;
     int ticks_since_last_sync;
@@ -34,13 +34,13 @@ class SaveStateManager{
         Memory* mem;
         Dma* dma;
         Vdma* vdma;
-        Ui* ui;
+        Host* host;
         Apu* apu;
         int& ticks;
         int& ticks_since_last_sync;
         std::string filename;
     public:
-        SaveStateManager(Cpu* cpu, Timer* timer, Ppu* ppu, Memory* mem, Dma* dma, Vdma* vdma, Ui* ui, Apu* apu, int& ticks, int& ticks_since_last_sync);
+        SaveStateManager(Cpu* cpu, Timer* timer, Ppu* ppu, Memory* mem, Dma* dma, Vdma* vdma, Host* host, Apu* apu, int& ticks, int& ticks_since_last_sync);
         void save_state();
         void load_state();
         void set_filename(const std::string& new_filename) { filename = new_filename; }
