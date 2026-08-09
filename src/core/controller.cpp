@@ -2,6 +2,7 @@
 #include "memory.h"
 #include "sync.h"
 #include "savestates.h"
+#include "core_log.h"
 
 Controller::Controller(Memory& mem) : mem(mem), event_queue(), event_queue_mutex() {
     this->define_keys();
@@ -106,16 +107,16 @@ void Controller::key_down(Host_key host_key){
                 break;
             case Extra_key::SAVESTATE:
                 if (save_state_manager){
-                    printf("Saving state... ");
+                    log_info("Saving state... ");
                     save_state_manager->save_state();
-                    printf("Done.\n");
+                    log_info("Done.\n");
                 }
                 break;
             case Extra_key::LOADSTATE:
                 if (save_state_manager){
-                    printf("Loading state... ");
+                    log_info("Loading state... ");
                     save_state_manager->load_state();
-                    printf("Done.\n");
+                    log_info("Done.\n");
                 }
                 break;
         }

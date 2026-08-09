@@ -2,6 +2,7 @@
 #include "video.h"
 #include "audio.h"
 #include "system.h"
+#include "log.h"
 
 // Backend factories. The core declares them but does NOT implement them: the
 // linker resolves them against whichever backend was compiled in (platform/sdl/,
@@ -10,3 +11,4 @@
 IVideo*  create_video();
 IAudio*  create_audio();
 ISystem* create_system();
+ILog*    create_log();

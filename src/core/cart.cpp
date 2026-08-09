@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <cmath>
 #include "sha256.h"
+#include "core_log.h"
 const std::unordered_map<u8,size_t> cart_ram_size_to_bytes = {
     {0, 0},{1, 0},{2, 8*1024},{3, 32*1024},{4, 128*1024},{5, 64*1024}
 };
@@ -126,7 +127,7 @@ bool Memory::load_rom(const char* filename) { //Loads the rom from the file. Als
         fseek(file, 0, SEEK_END);
         long size = ftell(file);
         if (size < 0x150){
-            printf("ROM file too small\n");
+            log_error("ROM file too small\n");
             return false;
         }
         fseek(file, 0, SEEK_SET);
@@ -149,7 +150,7 @@ bool Memory::load_rom(const char* filename) { //Loads the rom from the file. Als
         //Byte 15 is actually the GBC flag too
         if((this->rom_header.title[15] & 0x80) && !prefs->force_dmg){
             this->gb_model = GB_model::CGB;
-            printf("GBC\n");
+            log_info("GBC\n");
         }
             
         this->rom_header.title[15] = 0;
@@ -162,7 +163,7 @@ bool Memory::load_rom(const char* filename) { //Loads the rom from the file. Als
         this->cart_features.has_battery = cart_with_battery.find(this->rom_header.cart_type) != cart_with_battery.end();
         this->cart_features.has_rtc = this->rom_header.cart_type == 0xF || this->rom_header.cart_type == 0x10;
 
-        printf("MBC type: %s\n", mbc_names.at(this->mbc_type).c_str());
+        log_info("MBC type: %s\n", mbc_names.at(this->mbc_type).c_str());
         if(this->mbc_type != MBC_type::NONE)
             (this->*mbc_handlers.at(this->mbc_type))(MBC_action::INIT, 0, 0, nullptr);
 
@@ -178,7 +179,7 @@ void Memory::load_save(){
     std::string save_filename = _rom_filename.substr(0, _rom_filename.find_last_of('.')) + ".sav";
     FILE* file = fopen(save_filename.c_str(), "rb");
     if (file) {
-        printf("Save file found, loading...\n");
+        log_info("Save file found, loading...\n");
         if (this->mbc_type == MBC_type::MBC2){
             fread(std::get_if<MBC2_state>(&this->mbc_state)->mbc2_ram, 1, 512, file);
         }else{
@@ -372,7 +373,7 @@ void Memory::MBC3_handler(MBC_action action, u16 address, u8 data, MBC_result* r
                 std::string rtc_filename = _rom_filename.substr(0, _rom_filename.find_last_of('.')) + ".rtc";
                 FILE* file = fopen(rtc_filename.c_str(), "rb");
                 if (file) {
-                    printf("RTC file found, loading...\n");
+                    log_info("RTC file found, loading...\n");
                     fread(&mbc3->rtc_state, 1, sizeof(Rtc_state), file);
                     fclose(file);
                 }else{
@@ -508,8 +509,8 @@ void Memory::MBC5_handler(MBC_action action, u16 address, u8 data, MBC_result* r
             mbc5->reg_2000_2FFF = 0;
             mbc5->reg_3000_3FFF = 0;
             mbc5->reg_4000_5FFF = 0;
-            printf("MBC5 ROM banks: %zu\n", mbc5->rom_banks);
-            printf("MBC5 RAM banks: %zu\n", mbc5->cart_ram_banks);
+            log_info("MBC5 ROM banks: %zu\n", mbc5->rom_banks);
+            log_info("MBC5 RAM banks: %zu\n", mbc5->cart_ram_banks);
             break;
         }
         case MBC_action::READ:{

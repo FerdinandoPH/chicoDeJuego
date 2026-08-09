@@ -53,13 +53,17 @@ class Debugger{
         void debug_print();
         bool check_breakpoints();
 
-        void add_breakpoint_menu();
-        bool add_pos_breakpoint(std::string pos);
-        bool add_opcode_breakpoint(std::string opcode);
-        bool add_mem_breakpoint(std::string addr, std::string cond, std::string value, std::string value2 = 0);
-        bool add_reg_breakpoint(std::string reg, std::string cond, std::string value, std::string value2 = 0);
+        // Breakpoints are added by value, not by parsing text: a UI with no
+        // keyboard picks the numbers some other way. Turning what the user typed
+        // into these arguments is the job of whoever reads the input (see the
+        // parse_* helpers in debug_api.h).
+        // `current` means the value was taken from the machine as it is right
+        // now, which is what makes a != breakpoint re-arm itself on every change.
+        void add_pos_breakpoint(u16 pos);
+        void add_opcode_breakpoint(u8 opcode);
+        void add_mem_breakpoint(u16 addr, Dbg_cond cond, u8 value, u8 value2 = 0, bool current = false);
+        void add_reg_breakpoint(Reg reg, Dbg_cond cond, u16 value, u16 value2 = 0, bool current = false);
 
-        void del_breakpoint_menu();
         void reset();
         //void start_chrono();
         //std::chrono::duration<double, std::micro> get_chrono();

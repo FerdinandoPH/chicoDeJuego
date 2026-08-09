@@ -4,6 +4,7 @@
 #include "controller.h"
 #include "apu.h"
 #include <cstring>
+#include "core_log.h"
 #include <cstdio>
 #include <algorithm>
 #include <array>
@@ -83,7 +84,7 @@ void Memory::write(u16 address, u8 data, bool from_cpu) {
         switch(address){
             case DMA_ADDR:{
                 if (data > 0xDF){
-                    std::cout<<"Invalid DMA source address: "<<numToHexString(data, 2)<<std::endl;
+                    log_warn("Invalid DMA source address: %s\n", numToHexString(data, 2).c_str());
                     data = 0xDF;
                 }
                 this->dma->start(static_cast<u16>(data)*0x100, 0xFE00, 0xA0);
@@ -258,13 +259,13 @@ u16 Memory::cram_readX(Cram_type type, u8 palette_idx, u8 color_idx) {
 bool Memory::dump() { //Writes the current state of memory into a file. Opening it with a HEX editor is the caller's job.
     FILE* file = fopen("mem.hexd", "wb");
     if (!file) {
-        printf("Error writing mem.hexd\n");
+        log_error("Error writing mem.hexd\n");
         return false;
     }
     size_t writtenData = fwrite(_mem, 1, 0x10000, file);
     fclose(file);
     if (writtenData != 0x10000) {
-        printf("Error writing mem.hexd\n");
+        log_error("Error writing mem.hexd\n");
         return false;
     }
     return true;

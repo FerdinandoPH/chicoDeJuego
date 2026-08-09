@@ -1,4 +1,5 @@
 #include "savestates.h"
+#include "core_log.h"
 
 SaveStateManager::SaveStateManager(Cpu* cpu, Timer* timer, Ppu* ppu, Memory* mem, Dma* dma, Vdma* vdma, Host* host, Apu* apu, int& ticks, int& ticks_since_last_sync)
     : cpu(cpu), timer(timer), ppu(ppu), mem(mem), dma(dma), vdma(vdma), host(host), apu(apu), ticks(ticks), ticks_since_last_sync(ticks_since_last_sync){}
@@ -157,7 +158,7 @@ static void read_ppu_ss(FILE* f, Ppu_ss& ss) {
 void SaveStateManager::save_state(){
     FILE* file = fopen(filename.c_str(), "wb");
     if (!file) {
-        fprintf(stderr, "Failed to save state to %s\n", filename.c_str());
+        log_error("Failed to save state to %s\n", filename.c_str());
         return;
     }
 
@@ -194,7 +195,7 @@ void SaveStateManager::save_state(){
 void SaveStateManager::load_state(){
     FILE* file = fopen(filename.c_str(), "rb");
     if (!file) {
-        fprintf(stderr, "Failed to load state from %s\n", filename.c_str());
+        log_error("Failed to load state from %s\n", filename.c_str());
         return;
     }
 
@@ -202,8 +203,8 @@ void SaveStateManager::load_state(){
     state.version = 0;
     read_pod(file, state.version);
     if (state.version != SAVESTATE_VERSION) {
-        fprintf(stderr, "Save state %s has version %d, but version %d is required. Not loading.\n",
-                filename.c_str(), state.version, SAVESTATE_VERSION);
+        log_error("Save state %s has version %d, but version %d is required. Not loading.\n",
+                  filename.c_str(), state.version, SAVESTATE_VERSION);
         fclose(file);
         return;
     }
@@ -222,7 +223,7 @@ void SaveStateManager::load_state(){
     fclose(file);
 
     if (state.sha256 != mem->get_sha256()) {
-        fprintf(stderr, "Warning: The ROM hash does not match the one in the save state. The state may not load correctly.\n");
+        log_warn("Warning: The ROM hash does not match the one in the save state. The state may not load correctly.\n");
     }
 
     cpu->load_state(state.cpu_state);

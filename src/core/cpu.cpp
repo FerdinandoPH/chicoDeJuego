@@ -3,8 +3,8 @@
 #include "memory.h"
 #include "timer.h"
 #include "apu.h"
+#include "core_log.h"
 #include <string>
-#include <iostream>
 #include "utils.h"
 #include <chrono>
 const Flag flag_arr[] = {Flag::Z, Flag::N, Flag::H, Flag::C};
@@ -771,7 +771,7 @@ void Cpu::write_to_operand_8bit(Operand& op, u16 value, Addr_mode src_addr){
             this->mem[0xFF00 + this->regs[C]] = value;
             break;
         default:
-            std::cout<<"Erm... what the sigma? (write8bit)"<<std::endl;
+            log_warn("Erm... what the sigma? (write8bit)\n");
             break;
     }
     this->regs[PC] += add_to_pc;
@@ -796,7 +796,7 @@ void Cpu::write_to_operand_16bit(Operand& op, u16 value, Addr_mode src_addr){
             this->mem[this->regs[op.reg] + 1] = value >> 8;
             break;
         default:
-            std::cout<<"Erm... what the sigma? (write16bit)"<<std::endl;
+            log_warn("Erm... what the sigma? (write16bit)\n");
             break;
     }
     this->regs[PC] += add_to_pc;
@@ -828,7 +828,7 @@ bool Cpu::check_cond(Cond cond){
             return !this->regs.get_flag(Flag::Z);
             break;
     }
-    std::cout<<"Erm... what the sigma? (check_cond)"<<std::endl;
+    log_warn("Erm... what the sigma? (check_cond)\n");
     return false;
 }
 std::string Cpu::operand_toString(Operand op){
@@ -918,12 +918,12 @@ std::string Cpu::toString(){
 
 
 void Cpu::noImpl(Instr_args args){
-    std::cout << args.name << " is not implemented yet" << std::endl;
+    log_warn("%s is not implemented yet\n", args.name.c_str());
     this->set_state(QUIT);
     return;
 }
 void Cpu::X_X(Instr_args args){
-    std::cout<<"Parsed invalid opcode ("<<numToHexString(args.opcode, 2)<<") at "<<numToHexString(this->regs[PC], 4)<<std::endl;
+    log_warn("Parsed invalid opcode (%s) at %s\n", numToHexString(args.opcode, 2).c_str(), numToHexString((u16)this->regs[PC], 4).c_str());
     this->set_state(QUIT);
 }
 void Cpu::NOP(Instr_args args){
@@ -1139,7 +1139,7 @@ void Cpu::ROT(Instr_args args){
             this->regs.set_flag(Flag::Z, temp_result == 0 && args.variant == 7);
             break;
         default:
-            std::cout<<"Erm... what the sigma? (ROT)"<<std::endl;
+            log_warn("Erm... what the sigma? (ROT)\n");
             break;
     }
     this->write_to_operand(args.dest, temp_result, args.dest.addr_mode);

@@ -1,6 +1,7 @@
 #include "host.h"
 #include "backend.h"
-#include "debugger.h"
+#include "run_control.h"
+#include "ppu.h"   // Sprite, for the OAM viewer
 #include <cstdio>
 
 static const struct { int w; int h; int scale; const char* title; } dbg_window_info[NUM_DEBUG_WINDOWS] = {
@@ -26,8 +27,8 @@ void Host::init(){
     this->video->init(XRES, YRES, this->scale);
     this->audio->init(48000, 2);
 }
-void Host::set_debugger(Debugger* dbg){
-    this->dbg = dbg;
+void Host::set_run_control(Run_control* run_control){
+    this->run_control = run_control;
 }
 
 // --- Debug window lifecycle ---
@@ -73,7 +74,9 @@ void Host::on_quit(){
     this->quit_requested = true;
 }
 void Host::on_break(){
-    this->dbg->dbg_level = FULL_DBG;
+    // Only a request: the emulation thread stops itself when it reaches a point
+    // where stopping is safe. Poking the debug level from here would be a race.
+    this->run_control->request_break();
 }
 void Host::on_aux_closed(DebugWindowType w){
     // The user closed the window from the window manager: release it just as if

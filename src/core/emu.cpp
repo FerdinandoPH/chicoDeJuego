@@ -14,8 +14,11 @@
 #include "sync.h"
 #include "savestates.h"
 #include "hw_reg_def.h"
+#include "run_control.h"
+#include "debug_api.h"
+#include "core_log.h"
+#include "menu.h"
 #include <thread>
-#include <iostream>
 #include <csignal>
 #include <mutex>
 #include <chrono>
@@ -43,14 +46,16 @@ Ppu* ppu = new Ppu(*memory, host, gb_model);
 Vdma* vdma = new Vdma(memory, ppu, cpu);
 std::mutex host_mutex = std::mutex();
 Debugger dbg = Debugger(initial_dbg_mode, ticks, *memory, *cpu, *timer, *ppu);
+Run_control run_control = Run_control();
+Debug_api* debug_api = new Debug_api(dbg, *cpu, *memory, *host);
 SaveStateManager* ssm = new SaveStateManager(cpu, timer, ppu, memory, dma, vdma, host, apu, ticks, ticks_since_last_sync);
 Emu_sync* sync_controller = new Emu_sync(ticks, ticks_since_last_sync, memory, controller, host);
 void signal_handler(int signal){
     if (signal == SIGINT){
         std::signal(SIGINT, signal_handler);
         if (dbg.dbg_level != FULL_DBG){
-            std::cout << "SIGINT detected"<<std::endl<<std::endl;
-            dbg.dbg_level = FULL_DBG;
+            log_info("SIGINT detected\n\n");
+            run_control.request_break();
         }
         else{
             cpu->set_state(QUIT);
@@ -71,104 +76,27 @@ void emu_reset(std::binary_semaphore* sem = nullptr){
     controller->reset();
     dbg.reset();
 }
-void debug_menu(std::binary_semaphore* sem){
+// Hands the machine over to the backend's menu and waits there. Called from the
+// emulation thread and only at an instruction boundary, so everything the menu
+// can look at is consistent; emulation does not advance until it returns.
+void enter_debug_menu(){
     memory->sync_mem_ui_copy();
     host->sync_video_buffer();
-    bool exit = false;
-    while(!exit){
-        printf("Enter your command (h for help): ");
-        char command[25];
-        fflush(stdin);
-        fgets(command, sizeof(command), stdin);
-        command[strcspn(command, "\n")] = '\0';
-        switch(command[0]){
-            case 0: case 's':
-                exit = true;
-                continue;
-                break;
-            case 'b':
-                dbg.add_breakpoint_menu();
-                break;
-            case 'd':
-                std::cout<<dbg.breakpoints_toString()<<std::endl;
-                break;
-            case 'x':
-                dbg.del_breakpoint_menu();
-                break;
-            case 'h':
-                printf("h: Help\n");
-                printf("b: Add breakpoint\n");
-                printf("d: Display breakpoints\n");
-                printf("x: Delete breakpoint\n");
-                printf("g: Toggle debug windows\n");
-                printf("p: Clear main screen\n");
-                printf("s: Step\n");
-                printf("c: Continue\n");
-                printf("r: Reset\n");
-                printf("m: Memory dump\n");
-                printf("i: Debugger\n");
-                printf("v: See last 10 PC values\n");
-                printf("q: Quit\n");
-                break;
-            case 'g': {
-                printf("Toggle debug windows:\n");
-                printf("  1. Tile Viewer  [%s]\n", host->is_debug_window_active(DebugWindowType::TILES)   ? "ON" : "OFF");
-                printf("  2. BG Map       [%s]\n", host->is_debug_window_active(DebugWindowType::BG_MAP)  ? "ON" : "OFF");
-                printf("  3. Window Map   [%s]\n", host->is_debug_window_active(DebugWindowType::WIN_MAP) ? "ON" : "OFF");
-                printf("  4. OAM Sprites  [%s]\n", host->is_debug_window_active(DebugWindowType::OAM)     ? "ON" : "OFF");
-                printf("  0. Cancel\n");
-                std::string choice;
-                fflush(stdin);
-                std::getline(std::cin, choice);
-                int idx = choice[0] - '1';
-                if (idx >= 0 && idx < NUM_DEBUG_WINDOWS){
-                    host->debug_toggle_requested[idx] = true;
-                }
-                break;
-            }
-            case 'p':
-                host->clear_main_screen();
-                break;
-            case 'q':
-                printf("Quitting...\n");
-                exit = true;
-                cpu->set_state(QUIT);
-                break;
-            case 'c':
-                dbg.dbg_level = OFF_DBG;
-                exit = true;
-                break;
-            case 'r':
-                printf("Resetting is dangerous rn...\n");
-                // emu_reset(sem);
-                // dbg.debug_print();
-                
-                break;
-            case 'm':
-                if (memory->dump())
-                    host->open_with_default_app("mem.hexd"); // opens it with whatever the system uses for .hexd
-                break;
-            case 'v':
-                std::cout<<"[";
-                for (int i = 0; i < 10; i++){
-                    std::cout<<numToHexString(dbg.last_pc_values[i], 4)<<" ";
-                }
-                std::cout<<"]"<<std::endl;
-                break;
-            case 'i':
-                std::cout<<"Opening VsCode debugger..."<<std::endl; //Place breakpoint here
-                break;
-        }
-    }
-    printf("\n");
+    run_control.enter_paused();
+    platform_debug_menu(*debug_api);
+    run_control.leave_paused();
+    log_info("\n");
 }
 void* cpu_run(void* thread_args){
-    std::binary_semaphore* sem = ((Cpu_thread_args*)thread_args)->sem;
+    // The semaphore in thread_args was only there for the menu to hand the reset
+    // over to the main thread. The menu is gone from here, and the reset it
+    // guarded is still commented out, so nothing reads it for now.
+    (void)thread_args;
     //std::chrono::duration<double, std::micro> elapsed = dbg.get_chrono();
     //FILE* log_pc = fopen("chicoDeJuego.emulog", "wb");
     while(cpu->get_state() != QUIT){
         if(cpu->check_interrupts() && (dbg.dbg_level == FULL_DBG || dbg.dbg_level == PRINT_DBG)){
-            printf("%s interrupt triggered\n",interrupt_names.at(cpu->regs[PC]).c_str());
+            log_info("%s interrupt triggered\n", interrupt_names.at(cpu->regs[PC]).c_str());
         }
         if(cpu->get_state() == PAUSED){
             continue;
@@ -176,6 +104,11 @@ void* cpu_run(void* thread_args){
         #ifdef TRACEGEN
             dbg.generate_trace();
         #endif
+        // A break asked for from another thread (ESC, Ctrl-C) is only honored
+        // here: this is the boundary where stopping is safe.
+        if(run_control.take_break_request()){
+            dbg.dbg_level = FULL_DBG;
+        }
         if(dbg.dbg_level != NO_DBG){
             dbg.check_breakpoints();
             if(dbg.dbg_level == PRINT_DBG || dbg.dbg_level == FULL_DBG){
@@ -183,7 +116,7 @@ void* cpu_run(void* thread_args){
                 dbg.debug_print();
                 if(dbg.dbg_level == FULL_DBG){
                     host->clear_speed_percent();
-                    debug_menu(sem);
+                    enter_debug_menu();
                     sync_controller->reset_speed_window();
                 }
             }
@@ -204,7 +137,7 @@ void* cpu_run(void* thread_args){
 
 int emu_run(int argc, char** argv){
     std::signal(SIGINT, signal_handler);
-    host->set_debugger(&dbg);
+    host->set_run_control(&run_control);
     memory->set_dma(dma);
     memory->set_controller(controller);
     memory->set_apu(apu);
@@ -215,10 +148,10 @@ int emu_run(int argc, char** argv){
     controller->set_sync_controller(sync_controller);
     controller->set_save_state_manager(ssm);
     if(argc < 2 || !memory->load_rom(argv[1])){
-        printf("Error loading ROM\n");
+        log_error("Error loading ROM\n");
         return 1;
     }
-    printf("ROM loaded: %s\n\n", memory->rom_header.title);
+    log_info("ROM loaded: %s\n\n", memory->rom_header.title);
     cpu->reset(); // load GBC if applicable
     ssm->set_filename(std::string(memory->rom_header.title) + ".state");
     cpu->adjust_flag_from_checksum();

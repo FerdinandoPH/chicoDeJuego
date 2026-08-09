@@ -9,7 +9,7 @@
 #include "system.h"
 #include <mutex>
 #include <atomic>
-class Debugger;
+class Run_control;
 
 #define AUDIO_SAMPLE_BUFFER_SIZE 512
 
@@ -33,7 +33,7 @@ class Host : public IEvent_sink {
     private:
         Memory& mem;
         Controller& controller;
-        Debugger* dbg;
+        Run_control* run_control;
         int scale;
         IVideo*  video;
         IAudio*  audio;
@@ -74,7 +74,7 @@ class Host : public IEvent_sink {
         bool update();
         bool is_debug_window_active(DebugWindowType type);
         void write_pixel(int x, int y, u32 color);
-        void set_debugger(Debugger* dbg);
+        void set_run_control(Run_control* run_control);
         void clear_main_screen();
         void set_speed_percent(int percent);
         void clear_speed_percent();
