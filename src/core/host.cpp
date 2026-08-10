@@ -36,7 +36,7 @@ void Host::set_run_control(Run_control* run_control){
 void Host::create_debug_window(DebugWindowType type){
     int i = (int)type;
     DebugWindow& dw = debug_windows[i];
-    if (dw.active) return;
+    if (dw.active.load(std::memory_order_relaxed)) return;
 
     // The Tile Viewer shows both VRAM banks in CGB mode (bank 0 left, bank 1
     // right), so it needs double width. This is Game Boy knowledge, so it stays
@@ -45,21 +45,21 @@ void Host::create_debug_window(DebugWindowType type){
         dw.width = (mem.get_gb_model() == GB_model::CGB) ? (TILE_DBG_W * 2) : TILE_DBG_W;
 
     video->open_aux(type, dw.width, dw.height, dw.scale, dw.title);
-    dw.active = true;
+    dw.active.store(true, std::memory_order_relaxed);
 }
 void Host::destroy_debug_window(DebugWindowType type){
     DebugWindow& dw = debug_windows[(int)type];
-    if (!dw.active) return;
+    if (!dw.active.load(std::memory_order_relaxed)) return;
 
     video->close_aux(type);
-    dw.active = false;
+    dw.active.store(false, std::memory_order_relaxed);
 }
 void Host::close_all_debug_windows(){
     for (int i = 0; i < NUM_DEBUG_WINDOWS; i++)
         destroy_debug_window((DebugWindowType)i);
 }
 bool Host::is_debug_window_active(DebugWindowType type){
-    return debug_windows[(int)type].active;
+    return debug_windows[(int)type].active.load(std::memory_order_relaxed);
 }
 
 // --- Events ---
@@ -91,7 +91,7 @@ bool Host::update() {
     for (int i = 0; i < NUM_DEBUG_WINDOWS; i++){
         if (debug_toggle_requested[i]){
             debug_toggle_requested[i] = false;
-            if (debug_windows[i].active)
+            if (debug_windows[i].active.load(std::memory_order_relaxed))
                 destroy_debug_window((DebugWindowType)i);
             else
                 create_debug_window((DebugWindowType)i);
@@ -212,7 +212,7 @@ void Host::draw_dbg_tile_cgb(u32* pixel_buf, int buf_w, u16 tile_addr, u8 bank,
 
 void Host::tiles_dbg_update(){
     DebugWindow& dw = debug_windows[(int)DebugWindowType::TILES];
-    if (!dw.active) return;
+    if (!dw.active.load(std::memory_order_relaxed)) return;
 
     bool cgb = (gb_model == GB_model::CGB);
     // In CGB both VRAM banks (2 x 384 tiles) are shown side by side, so the
@@ -254,7 +254,7 @@ void Host::tiles_dbg_update(){
 }
 void Host::bg_map_dbg_update(){
     DebugWindow& dw = debug_windows[(int)DebugWindowType::BG_MAP];
-    if (!dw.active) return;
+    if (!dw.active.load(std::memory_order_relaxed)) return;
     u32 pixel_buf[BG_MAP_DBG_W * BG_MAP_DBG_H];
     std::fill_n(pixel_buf, BG_MAP_DBG_W * BG_MAP_DBG_H, GRID_COLOR);
     bool cgb = (gb_model == GB_model::CGB);
@@ -319,7 +319,7 @@ void Host::bg_map_dbg_update(){
 }
 void Host::win_map_dbg_update(){
     DebugWindow& dw = debug_windows[(int)DebugWindowType::WIN_MAP];
-    if (!dw.active) return;
+    if (!dw.active.load(std::memory_order_relaxed)) return;
     u32 pixel_buf[WIN_MAP_DBG_W * WIN_MAP_DBG_H];
     std::fill_n(pixel_buf, WIN_MAP_DBG_W * WIN_MAP_DBG_H, GRID_COLOR);
     bool cgb = (gb_model == GB_model::CGB);
@@ -347,7 +347,7 @@ void Host::win_map_dbg_update(){
 }
 void Host::oam_dbg_update(){
     DebugWindow& dw = debug_windows[(int)DebugWindowType::OAM];
-    if (!dw.active) return;
+    if (!dw.active.load(std::memory_order_relaxed)) return;
 
     u32 pixel_buf[OAM_DBG_W * OAM_DBG_H];
     std::fill_n(pixel_buf, OAM_DBG_W * OAM_DBG_H, GRID_COLOR);

@@ -65,10 +65,10 @@ bool Debug_api::dump_memory(){
 // --- Run control ---
 
 void Debug_api::step(){
-    this->dbg.dbg_level = FULL_DBG;
+    this->dbg.dbg_level.store(FULL_DBG, std::memory_order_relaxed);
 }
 void Debug_api::resume(){
-    this->dbg.dbg_level = OFF_DBG;
+    this->dbg.dbg_level.store(OFF_DBG, std::memory_order_relaxed);
 }
 void Debug_api::quit(){
     this->cpu.set_state(QUIT);

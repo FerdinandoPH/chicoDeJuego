@@ -6,6 +6,7 @@
 #include "ppu.h"
 #include <vector>
 #include <unordered_map>
+#include <atomic>
 //#include <chrono>
 
 //#define TRACEGEN
@@ -47,7 +48,11 @@ class Debugger{
         #endif
         static bool check_dbg_cond(Dbg_cond cond, u16 val1, u16 val2, u16 val3);
     public:
-        Debug_mode dbg_level;
+        // Written only by the emulation thread, but read from the SIGINT
+        // handler (emu.cpp), which runs on whichever thread takes the signal.
+        // Atomic because of that read: relaxed is enough, it carries no other
+        // data with it, and a plain load inside a signal handler is UB.
+        std::atomic<Debug_mode> dbg_level;
         std::vector<u16> last_pc_values;
         Debugger(Debug_mode initial_dbg_level, int& ticks, Memory& mem, Cpu& cpu, Timer& timer, Ppu& ppu);
         void debug_print();

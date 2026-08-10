@@ -12,7 +12,7 @@ const std::unordered_map<u16, std::string> interrupt_names = {
     {0x40, "V-Blank"}, {0x48, "LCD STAT"}, {0x50, "Timer"}, {0x58, "Serial"}, {0x60, "Joypad"}
 };
 Debugger::Debugger(Debug_mode initial_dbg_level, int& ticks, Memory& mem, Cpu& cpu, Timer& timer, Ppu& ppu) : ticks(ticks), mem(mem), cpu(cpu), timer(timer), ppu(ppu){
-    this->dbg_level = initial_dbg_level;
+    this->dbg_level.store(initial_dbg_level, std::memory_order_relaxed);
     //this->start_chrono();
     this->last_pc_values = std::vector<u16>(10, 0x100);
 }
@@ -106,14 +106,14 @@ bool Debugger::check_breakpoints(){
     for (auto it = this->pos_breakpoints.begin(); it != this->pos_breakpoints.end(); it++){
         if (*it == this->cpu.regs[PC]){
             log_info("Reached pos breakpoint at %s\n", numToHexString(*it, 4).c_str());
-            this->dbg_level = FULL_DBG;
+            this->dbg_level.store(FULL_DBG, std::memory_order_relaxed);
             return true;
         }
     }
     for (auto it = this->opcode_breakpoints.begin(); it != this->opcode_breakpoints.end(); it++){
         if (*it == this->mem.readX(this->cpu.regs[PC])){
             log_info("Reached opcode breakpoint at %s\n", numToHexString(*it, 2).c_str());
-            this->dbg_level = FULL_DBG;
+            this->dbg_level.store(FULL_DBG, std::memory_order_relaxed);
             return true;
         }
     }
@@ -125,7 +125,7 @@ bool Debugger::check_breakpoints(){
             if (it->current && it->cond == Dbg_cond::NEQ){
                 it->value = value;
             }
-            this->dbg_level = FULL_DBG;
+            this->dbg_level.store(FULL_DBG, std::memory_order_relaxed);
             return true;
         }
     }
@@ -137,7 +137,7 @@ bool Debugger::check_breakpoints(){
             if (it->current && it->cond == Dbg_cond::NEQ){
                 it->value = value;
             }
-            this->dbg_level = FULL_DBG;
+            this->dbg_level.store(FULL_DBG, std::memory_order_relaxed);
             return true;
         }
     }
@@ -190,7 +190,7 @@ bool Debugger::check_dbg_cond(Dbg_cond cond, u16 val1, u16 val2, u16 val3){
 }
 void Debugger::reset(){
     this->clear_breakpoints();
-    this->dbg_level = FULL_DBG;
+    this->dbg_level.store(FULL_DBG, std::memory_order_relaxed);
     this->last_pc_values = std::vector<u16>(10, 0x100);
 }
 

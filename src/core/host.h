@@ -17,7 +17,10 @@ class Run_control;
 // texture) are owned by the backend; only what the emulator needs in order to
 // decide what to draw lives here.
 struct DebugWindow {
-    bool active = false;
+    // Opened and closed by the thread that owns the backend, but read from the
+    // emulation thread too: the debug menu prints which windows are on. Relaxed
+    // is enough, it is only ever consulted on its own.
+    std::atomic<bool> active{false};
     int width;
     int height;
     int scale;

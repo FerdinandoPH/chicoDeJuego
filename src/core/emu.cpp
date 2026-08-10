@@ -53,7 +53,7 @@ Emu_sync* sync_controller = new Emu_sync(ticks, ticks_since_last_sync, memory, c
 void signal_handler(int signal){
     if (signal == SIGINT){
         std::signal(SIGINT, signal_handler);
-        if (dbg.dbg_level != FULL_DBG){
+        if (dbg.dbg_level.load(std::memory_order_relaxed) != FULL_DBG){
             log_info("SIGINT detected\n\n");
             run_control.request_break();
         }
@@ -95,7 +95,8 @@ void* cpu_run(void* thread_args){
     //std::chrono::duration<double, std::micro> elapsed = dbg.get_chrono();
     //FILE* log_pc = fopen("chicoDeJuego.emulog", "wb");
     while(cpu->get_state() != QUIT){
-        if(cpu->check_interrupts() && (dbg.dbg_level == FULL_DBG || dbg.dbg_level == PRINT_DBG)){
+        Debug_mode dbg_level = dbg.dbg_level.load(std::memory_order_relaxed);
+        if(cpu->check_interrupts() && (dbg_level == FULL_DBG || dbg_level == PRINT_DBG)){
             log_info("%s interrupt triggered\n", interrupt_names.at(cpu->regs[PC]).c_str());
         }
         if(cpu->get_state() == PAUSED){
@@ -107,14 +108,17 @@ void* cpu_run(void* thread_args){
         // A break asked for from another thread (ESC, Ctrl-C) is only honored
         // here: this is the boundary where stopping is safe.
         if(run_control.take_break_request()){
-            dbg.dbg_level = FULL_DBG;
+            dbg.dbg_level.store(FULL_DBG, std::memory_order_relaxed);
+            dbg_level = FULL_DBG;
         }
-        if(dbg.dbg_level != NO_DBG){
+        if(dbg_level != NO_DBG){
             dbg.check_breakpoints();
-            if(dbg.dbg_level == PRINT_DBG || dbg.dbg_level == FULL_DBG){
+            // check_breakpoints may have raised the level, so read it again.
+            dbg_level = dbg.dbg_level.load(std::memory_order_relaxed);
+            if(dbg_level == PRINT_DBG || dbg_level == FULL_DBG){
                 //std::cout<<"Elapsed time: "<<elapsed.count()<<"us"<<std::endl;
                 dbg.debug_print();
-                if(dbg.dbg_level == FULL_DBG){
+                if(dbg_level == FULL_DBG){
                     host->clear_speed_percent();
                     enter_debug_menu();
                     sync_controller->reset_speed_window();
