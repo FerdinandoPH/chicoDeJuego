@@ -85,6 +85,11 @@ class Host : public IEvent_sink {
         void write_pixel(int x, int y, u32 color);
         void set_run_control(Run_control* run_control);
         void clear_main_screen();
+        // Blanks the framebuffers without presenting, so it is safe to call from
+        // the emulation thread: the thread that owns the backend picks it up on
+        // its next update. clear_main_screen() presents, and touching the
+        // renderer from two threads at once is not.
+        void clear_video_buffers();
         void set_speed_percent(int percent);
         void clear_speed_percent();
         Host_ss save_state();

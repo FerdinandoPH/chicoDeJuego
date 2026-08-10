@@ -293,6 +293,11 @@ void Memory::sync_mem_ui_copy(){
     this->_cram_copy_for_ui = this->cram;
 }
 void Memory::reset(){
+    // The cartridge's RAM survives a reset, exactly like on the real thing. The
+    // 0xA000-0xBFFF window is only a view onto _cart_ram, and the memset below is
+    // about to wipe it, so whatever the game wrote goes back into _cart_ram first.
+    this->dump_cart_ram_window();
+
     std::scoped_lock<std::mutex> lock(this->mem_ui_mutex);
     memset(this->_mem_copy_for_ui, 0, sizeof(this->_mem_copy_for_ui));
     memset(this->_vram_copy_for_ui, 0, sizeof(this->_vram_copy_for_ui));
@@ -300,10 +305,33 @@ void Memory::reset(){
     memset(_mem, 0, sizeof(_mem));
     memset(_vram, 0, sizeof(_vram));
     memset(_wram, 0, sizeof(_wram));
+    memset(&this->cram, 0, sizeof(this->cram));
     if (_rom != NULL)
         memcpy(_mem, _rom, 0x8000);
+
+    // The memcpy above put banks 0 and 1 back, so the bookkeeping has to say so.
+    // change_banks() skips the copy when it thinks the bank is already loaded, so
+    // leaving these pointing at whatever the game had selected would silently turn
+    // every later bank switch into a no-op.
+    this->current_rom0_bank = 0;
+    this->current_rom1_bank = 1;
+    this->current_cart_ram_bank = 0;
+    if (_cart_ram != nullptr)
+        memcpy(_mem + 0xA000, _cart_ram, _cart_ram_bank_size);
+
+    this->_wram_current_bank = 1;
+    this->_vram_current_bank = 0;
+    this->is_protected = true;
+
+    // Banking registers back to power-up, without touching the cartridge's RAM or
+    // its clock (see MBC_action::RESET).
+    if (_rom != NULL && this->mbc_type != MBC_type::NONE)
+        (this->*mbc_handlers.at(this->mbc_type))(MBC_action::RESET, 0, 0, nullptr);
+
     this->load_initial_values();
     #ifdef SERIAL_LOG
+    if (serial_log)
+        fclose(serial_log);
     serial_log = fopen("serial_log.txt", "w");
     #endif
 }

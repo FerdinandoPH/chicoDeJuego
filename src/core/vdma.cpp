@@ -4,6 +4,14 @@
 #include "cpu.h"
 
 Vdma::Vdma(Memory* mem, Ppu* ppu, Cpu* cpu) : mem(mem), ppu(ppu), cpu(cpu), source(0), dest(0), bytes_left(0), mode(Vdma_mode::GENERAL) {}
+void Vdma::reset(){
+    this->source = 0;
+    this->dest = 0;
+    this->bytes_left = 0;
+    this->bytes_transferred_in_round = 0;
+    this->mode = Vdma_mode::GENERAL;
+    this->state = Vdma_state::IDLE;
+}
 
 void Vdma::set_src(u16 addr, u8 data){
     if(addr== VDMA1_ADDR){

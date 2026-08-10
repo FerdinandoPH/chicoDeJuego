@@ -32,13 +32,12 @@ Controller* controller = new Controller(*memory);
 Dma* dma = new Dma(memory);
 
 
-int ticks_per_frame = 70224;
+int ticks_per_frame = NORMAL_TICKS_PER_FRAME;
 Cpu* cpu = new Cpu(*memory, gb_model, ticks_per_frame);
 Timer* timer = new Timer(*cpu, *memory);
 int ticks = 0;
 int ticks_since_last_sync = 0;
 
-bool resetting = false;
 Host* host = new Host(*memory, *controller, 4);
 Apu* apu = new Apu(*memory, *cpu, *host);
 Ppu* ppu = new Ppu(*memory, host, gb_model);
@@ -63,18 +62,31 @@ void signal_handler(int signal){
         }
     }
 }
-void emu_reset(std::binary_semaphore* sem = nullptr){
-    if (sem != nullptr){
-        resetting = true;
-        sem->acquire();
-    }
+// Puts the machine back exactly where it was right after booting. Called from the
+// emulation thread while it sits in the debug menu, which is the only moment where
+// nothing is half-executed, so no handshake with the render thread is needed.
+//
+// The checklist is Save_state (savestates.h): every field that goes into a *_ss
+// struct has to be covered by one of these calls, or it would survive the reset.
+void emu_reset(){
     ticks = 0;
-    memory->reset();
+    ticks_since_last_sync = 0;
+    memory->reset();   // first: the others read hardware registers out of it
     cpu->reset();
     timer->reset();
     ppu->reset();
+    apu->reset();
+    dma->reset();
+    vdma->reset();
     controller->reset();
     dbg.reset();
+    // Same touch-up emu_run does after the very first reset: the boot ROM leaves
+    // H and C in F depending on the header checksum.
+    cpu->adjust_flag_from_checksum();
+
+    host->clear_video_buffers();  // otherwise the last frame stays frozen on screen
+    host->clear_audio_queue();    // and the samples from before the reset would play
+    sync_controller->reset_speed_window();
 }
 // Hands the machine over to the backend's menu and waits there. Called from the
 // emulation thread and only at an instruction boundary, so everything the menu
@@ -88,9 +100,6 @@ void enter_debug_menu(){
     log_info("\n");
 }
 void* cpu_run(void* thread_args){
-    // The semaphore in thread_args was only there for the menu to hand the reset
-    // over to the main thread. The menu is gone from here, and the reset it
-    // guarded is still commented out, so nothing reads it for now.
     (void)thread_args;
     //std::chrono::duration<double, std::micro> elapsed = dbg.get_chrono();
     //FILE* log_pc = fopen("chicoDeJuego.emulog", "wb");
@@ -162,19 +171,13 @@ int emu_run(int argc, char** argv){
     #ifdef TRACEGEN
     dbg.generate_trace_header();
     #endif
-    std::binary_semaphore sem = std::binary_semaphore(0);
-    Cpu_thread_args thread_args = {&sem};
-    std::thread cpu_thread(cpu_run, &thread_args);
+    std::thread cpu_thread(cpu_run, nullptr);
     //host->debug_toggle_requested[1] = true; //for debug only
     while(cpu->get_state() != QUIT){
         host_mutex.lock();
         if(!host->update())
             cpu->set_state(QUIT);
         host_mutex.unlock();
-        if (resetting){
-            resetting = false;
-            sem.release();
-        }
     }
     cpu_thread.join();
     memory->close();

@@ -166,8 +166,21 @@ void Ppu::change_mode(Ppu_mode mode){
 
 void Ppu::reset(){
     this->startup = true;
+    this->enabled = true;
+    this->vblank_triggered = false;
     this->ppu_mode = Ppu_mode::VBLANK;
     this->line_ticks = 456 - 64;
+    this->sprites_in_line = 0;
+    for (int i = 0; i < 40; i++)
+        this->oam[i] = Sprite{};
+    for (int i = 0; i < 10; i++)
+        this->line_oam[i] = Sprite{};
+    // The fetcher and the FIFO are as much PPU state as anything above (they are
+    // both in Ppu_ss). new_line goes after new_frame, as their own comments say.
+    this->fetcher->new_frame();
+    this->fifo->new_frame();
+    this->fetcher->new_line();
+    this->fifo->new_line();
 }
 
 void Ppu::check_lyc_at_restart(){

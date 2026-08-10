@@ -235,8 +235,10 @@ void platform_debug_menu(Debug_api& api){
                 exit = true;
                 break;
             case 'r':
-                printf("Resetting is dangerous rn...\n");
-                // api.reset();
+                api.reset();
+                printf("Machine reset.\n");
+                api.resume();
+                exit = true;
                 break;
             case 'm':
                 api.dump_memory();

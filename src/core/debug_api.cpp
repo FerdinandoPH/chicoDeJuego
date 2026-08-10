@@ -1,4 +1,5 @@
 #include "debug_api.h"
+#include "emu.h"
 #include "cpu.h"
 #include "memory.h"
 #include "host.h"
@@ -72,6 +73,9 @@ void Debug_api::resume(){
 }
 void Debug_api::quit(){
     this->cpu.set_state(QUIT);
+}
+void Debug_api::reset(){
+    emu_reset();
 }
 
 // --- Text parsing ---

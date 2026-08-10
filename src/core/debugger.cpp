@@ -188,9 +188,11 @@ bool Debugger::check_dbg_cond(Dbg_cond cond, u16 val1, u16 val2, u16 val3){
     }
     return false;
 }
+// Called when the machine is reset. Only the part of the debugger that describes
+// the machine goes away: the PC history now belongs to a run that no longer
+// exists. Breakpoints are the user's, not the machine's, so they stay, and so does
+// dbg_level -- whoever asked for the reset decides whether to keep debugging.
 void Debugger::reset(){
-    this->clear_breakpoints();
-    this->dbg_level.store(FULL_DBG, std::memory_order_relaxed);
     this->last_pc_values = std::vector<u16>(10, 0x100);
 }
 

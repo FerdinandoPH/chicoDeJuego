@@ -189,9 +189,16 @@ void Memory::load_save(){
         fclose(file);
     }
 }
+// Copies the live 0xA000-0xBFFF window back into _cart_ram. The window is only a
+// view onto the currently selected bank, so anything that is about to overwrite
+// _mem has to call this first or the game's last writes are lost.
+void Memory::dump_cart_ram_window(){
+    if(!_cart_ram) return;
+    memcpy(_cart_ram + (current_cart_ram_bank * _cart_ram_bank_size), _mem + 0xA000, _cart_ram_bank_size);
+}
 void Memory::save_cart_ram(){
     if(!this->cart_features.has_battery || !_cart_ram) return;
-    memcpy(_cart_ram + (current_cart_ram_bank * _cart_ram_bank_size), _mem + 0xA000, _cart_ram_bank_size);
+    this->dump_cart_ram_window();
     std::string save_filename = _rom_filename.substr(0, _rom_filename.find_last_of('.')) + ".sav";
     FILE* file = fopen(save_filename.c_str(), "wb");
     if (file) {
@@ -259,6 +266,16 @@ void Memory::MBC1_handler(MBC_action action, u16 address, u8 data, MBC_result* r
 
             break;
         }
+        case MBC_action::RESET:{
+            auto* mbc1 = std::get_if<MBC1_state>(&this->mbc_state);
+            if(!mbc1) break;
+            mbc1->ext_ram_enabled = false;
+            mbc1->advanced_banking_mode = false;
+            mbc1->reg_2000_3FFF = 1;
+            mbc1->reg_4000_5FFF = 0;
+            // rom_banks, cart_ram_banks and the mask come from the header: constant.
+            break;
+        }
         case MBC_action::READ:{
             auto* mbc1 = std::get_if<MBC1_state>(&this->mbc_state);
             if(!mbc1->ext_ram_enabled && BETWEEN(address, 0xA000,0xBFFF)){
@@ -317,6 +334,13 @@ void Memory::MBC2_handler(MBC_action action, u16 address, u8 data, MBC_result* r
             mbc2->rom_banks = rom_size_to_number_of_banks.at(this->rom_header.rom_size);
             mbc2->cart_ram_banks = 1;
             memset(mbc2->mbc2_ram, 0xFF, 512);
+            break;
+        }
+        case MBC_action::RESET:{
+            auto* mbc2 = std::get_if<MBC2_state>(&this->mbc_state);
+            if(!mbc2) break;
+            mbc2->ext_ram_enabled = false;
+            // mbc2_ram is this cartridge's battery-backed RAM: it outlives a reset.
             break;
         }
         case MBC_action::READ:{
@@ -388,6 +412,17 @@ void Memory::MBC3_handler(MBC_action action, u16 address, u8 data, MBC_result* r
                 }
                 mbc3->latched_regs = mbc3->rtc_state.regs;
             }
+            break;
+        }
+        case MBC_action::RESET:{
+            auto* mbc3 = std::get_if<MBC3_state>(&this->mbc_state);
+            if(!mbc3) break;
+            mbc3->ext_ram_enabled = false;
+            mbc3->ram_mode = MBC3_ram_mode::RAM;
+            mbc3->reg_4000_5FFF = 0;
+            mbc3->reg_6000_7FFF = 0xFF;
+            // rtc_state and latched_regs are the cartridge's clock: it keeps time
+            // across a reset, so they are deliberately left alone.
             break;
         }
         case MBC_action::READ:{
@@ -511,6 +546,15 @@ void Memory::MBC5_handler(MBC_action action, u16 address, u8 data, MBC_result* r
             mbc5->reg_4000_5FFF = 0;
             log_info("MBC5 ROM banks: %zu\n", mbc5->rom_banks);
             log_info("MBC5 RAM banks: %zu\n", mbc5->cart_ram_banks);
+            break;
+        }
+        case MBC_action::RESET:{
+            auto* mbc5 = std::get_if<MBC5_state>(&this->mbc_state);
+            if(!mbc5) break;
+            mbc5->ext_ram_enabled = false;
+            mbc5->reg_2000_2FFF = 0;
+            mbc5->reg_3000_3FFF = 0;
+            mbc5->reg_4000_5FFF = 0;
             break;
         }
         case MBC_action::READ:{

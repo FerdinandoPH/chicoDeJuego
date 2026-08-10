@@ -20,7 +20,10 @@ class Vdma;
 
 //#define SERIAL_LOG
 enum class MBC_type{NONE, MBC1, MBC2, MBC3, MBC5, MBC6, MBC7, MMM01, CAMERA, TAMA5, HuC1, HuC3};
-enum class MBC_action{INIT, READ, WRITE, CLOSE};
+// RESET is INIT minus everything that survives a reset on the real thing:
+// it puts the banking registers back to power-up and leaves the cartridge's
+// RAM and RTC alone.
+enum class MBC_action{INIT, RESET, READ, WRITE, CLOSE};
 enum class MBC_ret_type{DISCARD, KEEP, RETURN};
 typedef struct{
     bool has_battery=false;
@@ -126,7 +129,7 @@ class Memory {
     private:
         GB_model& gb_model;
         Prefs* prefs;
-        MBC_type mbc_type;
+        MBC_type mbc_type = MBC_type::NONE;
         //std::mutex mem_mutex;
         std::mutex mem_ui_mutex;
         u8 _mem[0x10000];
@@ -159,6 +162,7 @@ class Memory {
         MBC_result process_MBC_read(u16 address);
         MBC_result process_MBC_write(u16 address, u8 data);
         void save_cart_ram();
+        void dump_cart_ram_window();
         size_t current_cart_ram_bank = 0;
         size_t current_rom0_bank = 0;
         size_t current_rom1_bank = 1;
@@ -170,7 +174,7 @@ class Memory {
         bool vram_locked = false;
         bool oam_locked = false;
         #ifdef SERIAL_LOG
-        FILE* serial_log;
+        FILE* serial_log = nullptr;
         #endif
     public:
         Cart_header rom_header;

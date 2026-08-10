@@ -6,6 +6,23 @@ Apu::Apu(Memory& mem, Cpu& cpu, Host& host) : mem(mem), cpu(cpu), host(host), pu
     internal_reset();
 }
 
+// Full power-up reset. internal_reset() below is the narrower one the hardware
+// performs when NR52's enable bit is cleared, and it deliberately leaves the
+// mixer and the volumes alone; this one puts back everything in Apu_ss.
+void Apu::reset() {
+    this->enabled = true;
+    this->div_bit_to_check = 4;
+    this->sample_timer = 0;
+    this->left_volume = 8;
+    this->right_volume = 8;
+    this->left_cap = 0;
+    this->right_cap = 0;
+    for (int i = 0; i < 4; i++){
+        this->stereo_left[i] = false;
+        this->stereo_right[i] = false;
+    }
+    this->internal_reset();
+}
 void Apu::internal_reset() {
     frame_step = 0;
     last_div_bit = 0;

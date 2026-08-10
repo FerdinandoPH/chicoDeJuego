@@ -44,6 +44,7 @@ class Apu{
         double dc_block(double in, double& cap);
     public:
         Apu(Memory& mem, Cpu& cpu, Host& host);
+        void reset();
         void internal_reset();
         u8 write(u16 addr, u8 data);
         void tick();

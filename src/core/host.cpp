@@ -128,6 +128,11 @@ void Host::clear_main_screen(){
     }
     video->present(this->video_buffer_render);
 }
+void Host::clear_video_buffers(){
+    std::scoped_lock<std::mutex> lock(video_buffer_mutex);
+    std::fill_n(this->video_buffer_ppu, XRES * YRES, 0xFF000000);
+    std::fill_n(this->video_buffer_inter, XRES * YRES, 0xFF000000);
+}
 void Host::write_pixel(int x, int y, u32 color){
     if (x < 0 || x >= XRES || y < 0 || y >= YRES) return;
     this->video_buffer_ppu[y * XRES + x] = color;

@@ -14,12 +14,13 @@ typedef struct{
 class Dma{
     private:
         Memory* mem;
-        u16 source;
-        u16 dest;
-        u16 bytes_left;
+        u16 source = 0;
+        u16 dest = 0;
+        u16 bytes_left = 0;
     public:
         bool transferring = false;
         Dma(Memory* mem);
+        void reset();
         void start(u16 source, u16 dest, u16 length);
         void tick();
         std::string toString();
@@ -50,6 +51,7 @@ class Vdma{
     public:
         Vdma_state state = Vdma_state::IDLE;
         Vdma(Memory* mem, Ppu* ppu, Cpu* cpu);
+        void reset();
         Vdma_mode get_mode(){return mode;};
         void set_src(u16 addr, u8 data);
         void set_dest(u16 addr, u8 data);

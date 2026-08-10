@@ -53,6 +53,9 @@ class Debug_api{
         void step();
         void resume();
         void quit();
+        // Back to the state right after booting. The cartridge's RAM survives,
+        // like it does on the real thing. Ends the menu, like resume().
+        void reset();
 };
 
 // Turning text into the arguments the API takes. They live here and not in the

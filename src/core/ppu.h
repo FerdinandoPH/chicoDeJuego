@@ -198,7 +198,7 @@ class Ppu{
         bool vblank_triggered = false;
         Sprite oam[40];
         Sprite line_oam[10];
-        int sprites_in_line;
+        int sprites_in_line = 0;
         Ppu(Memory& mem, Host* host, GB_model& gb_model);
         Ppu_mode get_mode(){return ppu_mode;};
         void tick();

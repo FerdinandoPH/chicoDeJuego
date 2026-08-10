@@ -11,8 +11,10 @@ Tac_Struct Timer::get_tac(){ //Reads TAC and analyzes its bits to determine enab
     
     return tac_struct;
 }
-void Timer::reset(){ //Everything else is reset by mem
+void Timer::reset(){ //The registers themselves are reset by mem
     this->tima_accumulation = 0;
+    this->internal_clock = 0;
+    this->trigger_on_next = false;
 }
 void Timer::tick(){
     if(this->cpu.get_state() != STOPPED){ //When stopped, the timer stops working

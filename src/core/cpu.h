@@ -12,6 +12,10 @@ typedef enum {RUNNING, PAUSED, STOPPED, HALTED, VDMA_HALTED, QUIT} Cpu_State;
 class Memory;
 
 enum class Speed_mode{NORMAL, DOUBLE};
+// T-cycles in a frame at normal speed. CGB double speed doubles it in place
+// (see Cpu::STOP), so a reset has to restore this value rather than halve the
+// current one, which would be wrong when we were already at normal speed.
+constexpr int NORMAL_TICKS_PER_FRAME = 70224;
 enum class Addr_mode{IMPL, IMPL_SHOW, IMM8, IMMe8, IMM16, REG, REG16, REG16_PLUS_IMMe8, MEM_REG, MEM_REG_INC, MEM_REG_DEC, MEM16_REG, MEM_IMM16, HRAM_PLUS_IMM8, HRAM_PLUS_C}; //All types of addressing modes for each instruction
 
 enum class Cond{ALWAYS, Z, NZ, C, NC};
@@ -229,6 +233,7 @@ typedef struct{
     u8 IME_pending;
     Cpu_State state;
     HALT_SUBSTATE halt_substate;
+    Speed_mode speed_mode;
 }Cpu_ss;
 
 class Timer;
@@ -237,8 +242,8 @@ class Cpu{
     private:
         std::atomic<Cpu_State> state{RUNNING};
         Memory& mem;
-        Timer* timer;
-        Apu* apu;
+        Timer* timer = nullptr;
+        Apu* apu = nullptr;
         GB_model& gb_model;
         int& ticks_per_frame;
         Speed_mode speed_mode = Speed_mode::NORMAL;
@@ -255,7 +260,7 @@ class Cpu{
         static const Instr instr_table_prefix[0x100];
         static const u16 int_addrs[5];
         #ifdef LOGGER
-        FILE* log;
+        FILE* log = nullptr;
         u16 prev_pc = 0xFFFF;
         #endif
         #pragma region All_instructions

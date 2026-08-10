@@ -3,6 +3,12 @@
 Dma::Dma(Memory* mem) : mem(mem) {
 
 }
+void Dma::reset(){
+    this->source = 0;
+    this->dest = 0;
+    this->bytes_left = 0;
+    this->transferring = false;
+}
 void Dma::start(u16 source, u16 dest, u16 length){
     this->source = source;
     this->dest = dest;

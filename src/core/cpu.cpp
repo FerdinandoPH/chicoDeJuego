@@ -564,12 +564,22 @@ Cpu::Cpu(Memory& memory, GB_model& gb_model, int& ticks_per_frame): mem(memory),
 
 #ifdef LOGGER
 Cpu::~Cpu(){
-    fclose(this->log);
+    if (this->log)
+        fclose(this->log);
 }
 #endif
 
 void Cpu::reset(){ //Sets states and registers to initial values
     this->set_state(RUNNING);
+    // Double speed does not survive a reset. ticks_per_frame is a reference to the
+    // emulator's global, which STOP doubles in place, so it is restored from the
+    // constant; prepare_speed_change is what puts the DIV bit the timer and the APU
+    // watch back where it belongs. Both pointers are still null when the
+    // constructor calls us.
+    this->speed_mode = Speed_mode::NORMAL;
+    this->ticks_per_frame = NORMAL_TICKS_PER_FRAME;
+    if (this->timer) this->timer->prepare_speed_change();
+    if (this->apu) this->apu->prepare_speed_change();
     this->IME_pending = 0;
     this->IME = false;
     this->halt_substate = HALT_SUBSTATE::NONE;
@@ -586,7 +596,10 @@ void Cpu::reset(){ //Sets states and registers to initial values
     this->regs[H] = 0x01;
     this->regs[L] = 0x4D;
     #ifdef LOGGER
+    if (this->log)
+        fclose(this->log);
     this->log = fopen("cdj.emulog", "wb");
+    this->prev_pc = 0xFFFF;
     #endif
 }
 Int_Info Cpu::get_INTs(){ //Provides info about IE and IF in a more programmer-friendly way
@@ -1302,6 +1315,7 @@ Cpu_ss Cpu::save_state() {
     state.IME_pending = this->IME_pending;
     state.state = this->state.load(std::memory_order_acquire);
     state.halt_substate = this->halt_substate;
+    state.speed_mode = this->speed_mode;
     return state;
 }
 
@@ -1320,4 +1334,12 @@ void Cpu::load_state(const Cpu_ss& state) {
     this->IME_pending = state.IME_pending;
     this->state.store(state.state, std::memory_order_release);
     this->halt_substate = state.halt_substate;
+    // ticks_per_frame is derived from the speed, not stored: it is a reference to
+    // the emulator's global that STOP doubles in place, so it is recomputed here
+    // instead of being saved and risking a mismatch.
+    this->speed_mode = state.speed_mode;
+    this->ticks_per_frame = (this->speed_mode == Speed_mode::DOUBLE)
+                              ? 2 * NORMAL_TICKS_PER_FRAME : NORMAL_TICKS_PER_FRAME;
+    if (this->timer) this->timer->prepare_speed_change();
+    if (this->apu) this->apu->prepare_speed_change();
 }
