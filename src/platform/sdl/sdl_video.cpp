@@ -114,7 +114,11 @@ class Sdl_video : public IVideo {
             SDL_RenderPresent(a.renderer);
         }
 
-        // Needed by Sdl_system to match close events with their window.
+        // Needed by Sdl_system to match close events with their window, and to
+        // parent the file dialog.
+        SDL_Window* main_window_handle() const {
+            return this->main_window;
+        }
         SDL_WindowID main_window_id() const {
             return this->main_window ? SDL_GetWindowID(this->main_window) : 0;
         }
@@ -136,4 +140,7 @@ SDL_WindowID sdl_main_window_id(){
 }
 SDL_WindowID sdl_aux_window_id(int i){
     return g_sdl_video.aux_window_id(i);
+}
+SDL_Window* sdl_main_window(){
+    return g_sdl_video.main_window_handle();
 }

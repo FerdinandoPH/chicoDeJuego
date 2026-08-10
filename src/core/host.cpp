@@ -26,6 +26,10 @@ Host::Host(Memory& mem, Controller& controller, int scale) :  mem(mem), controll
 void Host::init(){
     this->video->init(XRES, YRES, this->scale);
     this->audio->init(48000, 2);
+    // The framebuffers start out as whatever was in memory, and the window is
+    // visible from now on (the ROM picker runs with it already up), so give it
+    // something to show.
+    this->clear_main_screen();
 }
 void Host::set_run_control(Run_control* run_control){
     this->run_control = run_control;
@@ -455,6 +459,10 @@ void Host::load_state(const Host_ss& state){
 }
 bool Host::open_with_default_app(const char* path){
     return sys->open_with_default_app(path);
+}
+bool Host::pick_file(const char* title, const char* filter_name,
+                     const char* filter_pattern, std::string& out){
+    return sys->pick_file(title, filter_name, filter_pattern, out);
 }
 // The parameter is microseconds: it used to be named "ms" by mistake, even
 // though the arithmetic (us * 1000 = ns) was always right.

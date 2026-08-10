@@ -2,6 +2,7 @@
 #include "utils.h"
 #include "input.h"
 #include "video.h"
+#include <string>
 
 // Event sink. This is the ONLY port that goes platform -> core: the other three
 // are called by the core. The backend translates its native events and reports
@@ -22,4 +23,17 @@ struct ISystem {
     virtual void delay_ns(u64 ns) = 0;
     virtual void pump_events(IEvent_sink& sink) = 0;
     virtual bool open_with_default_app(const char* path) = 0;
+
+    // Asks the user to pick a file, blocking until they answer. filter_name and
+    // filter_pattern describe what to offer ("Game Boy ROMs", "gb;gbc").
+    // Returns false if the user cancelled, and also on a backend that has no way
+    // to ask (a console, libretro): the core then just reports that it has no ROM.
+    //
+    // It is called only after IVideo::init, and that is deliberate. The backend is
+    // expected to hand the dialog its own window as the parent: on Windows an
+    // ownerless dialog leaves the process with no window to give the foreground
+    // back to when it closes, and every window opened afterwards comes up behind
+    // the other applications.
+    virtual bool pick_file(const char* title, const char* filter_name,
+                           const char* filter_pattern, std::string& out) = 0;
 };

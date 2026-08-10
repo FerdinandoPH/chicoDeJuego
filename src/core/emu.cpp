@@ -160,7 +160,19 @@ int emu_run(int argc, char** argv){
     host->init();
     controller->set_sync_controller(sync_controller);
     controller->set_save_state_manager(ssm);
-    if(argc < 2 || !memory->load_rom(argv[1])){
+    // Asking for the ROM happens here, after host->init(), and not before
+    // emu_run: the backend needs a window of its own to hang the dialog on (see
+    // ISystem::pick_file).
+    std::string picked_rom;
+    const char* rom_path = (argc >= 2) ? argv[1] : nullptr;
+    if (rom_path == nullptr){
+        if (!host->pick_file("Select a ROM", "Game Boy ROMs", "gb;gbc", picked_rom)){
+            log_info("No ROM selected\n");   // cancelling is not an error
+            return 0;
+        }
+        rom_path = picked_rom.c_str();
+    }
+    if(!memory->load_rom(rom_path)){
         log_error("Error loading ROM\n");
         return 1;
     }

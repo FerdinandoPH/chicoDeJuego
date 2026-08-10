@@ -6,3 +6,7 @@
 // something only Sdl_video knows.
 SDL_WindowID sdl_main_window_id();
 SDL_WindowID sdl_aux_window_id(int i);
+
+// The main window itself, so Sdl_system can make the file dialog belong to it.
+// Null before IVideo::init has run.
+SDL_Window* sdl_main_window();

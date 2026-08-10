@@ -1,6 +1,24 @@
 #include "system.h"
 #include "sdl_internal.h"
 #include <SDL3/SDL.h>
+#include <atomic>
+
+// SDL_ShowOpenFileDialog is asynchronous: it returns straight away and delivers
+// the answer to a callback that, depending on the backend, may run on another
+// thread (hence the atomic). pick_file below turns that back into a blocking
+// call, which is what the core wants.
+namespace {
+    std::atomic<bool> g_dialog_done{false};
+    std::string       g_dialog_result;
+
+    void SDLCALL file_dialog_callback(void*, const char* const* filelist, int){
+        // filelist == NULL    -> error
+        // filelist[0] == NULL -> the user cancelled
+        if (filelist && filelist[0])
+            g_dialog_result = filelist[0];
+        g_dialog_done.store(true, std::memory_order_release);
+    }
+}
 
 // Translation from the native key code to the core's enum. This is the only
 // place in the program that knows about both SDL_Scancode and Host_key.
@@ -30,6 +48,41 @@ class Sdl_system : public ISystem {
 
         bool open_with_default_app(const char* path) override {
             return SDL_OpenURL(path);
+        }
+
+        bool pick_file(const char* title, const char* filter_name,
+                       const char* filter_pattern, std::string& out) override {
+            const SDL_DialogFileFilter filters[] = {
+                { filter_name, filter_pattern },
+                { "All files", "*" },
+            };
+            // The main window is passed as the parent on purpose. On Windows an
+            // ownerless dialog leaves the process with no window at all while it
+            // is up, so when it closes the OS hands the foreground to some other
+            // application, and the window we open next is not allowed to take it
+            // back: it appears behind everything. Owning the dialog gives the
+            // foreground somewhere of ours to return to.
+            SDL_Window* parent = sdl_main_window();
+            SDL_PropertiesID props = SDL_CreateProperties();
+            SDL_SetPointerProperty(props, SDL_PROP_FILE_DIALOG_FILTERS_POINTER, (void*)filters);
+            SDL_SetNumberProperty(props, SDL_PROP_FILE_DIALOG_NFILTERS_NUMBER, SDL_arraysize(filters));
+            SDL_SetPointerProperty(props, SDL_PROP_FILE_DIALOG_WINDOW_POINTER, parent);
+            SDL_SetStringProperty(props, SDL_PROP_FILE_DIALOG_TITLE_STRING, title);
+
+            g_dialog_done.store(false, std::memory_order_release);
+            g_dialog_result.clear();
+            SDL_ShowFileDialogWithProperties(SDL_FILEDIALOG_OPENFILE,
+                                             file_dialog_callback, nullptr, props);
+            SDL_DestroyProperties(props);
+
+            // The dialog needs an event loop running: on Linux it goes through XDG
+            // portals, which need DBus, which needs events pumped.
+            while (!g_dialog_done.load(std::memory_order_acquire)){
+                SDL_PumpEvents();
+                SDL_Delay(10);
+            }
+            out = g_dialog_result;
+            return !out.empty();
         }
 
         // This used to be Ui::handle_events. The only change is the actions that

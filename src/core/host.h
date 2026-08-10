@@ -101,6 +101,10 @@ class Host : public IEvent_sink {
         void clear_audio_queue();
 
         bool open_with_default_app(const char* path);
+        // Blocks until the user picks a file. See ISystem::pick_file: it must be
+        // called after init(), so the backend has a window to parent the dialog to.
+        bool pick_file(const char* title, const char* filter_name,
+                       const char* filter_pattern, std::string& out);
         void delay_us(u64 us);
 
         // IEvent_sink: what the backend reports back to us.
