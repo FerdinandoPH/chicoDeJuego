@@ -40,6 +40,12 @@ class Host : public IEvent_sink {
         ISystem* sys;
         bool quit_requested = false;
         u32 video_buffer_ppu[XRES * YRES];
+        u32 video_buffer_inter[XRES * YRES];
+        // Third copy, only touched by the thread that presents. It exists so the
+        // frame can be taken out from under video_buffer_mutex and handed to the
+        // backend with the mutex already released: present() blocks until the
+        // vsync, and holding the mutex across that wait stalls the emulation
+        // thread on every sync_video_buffer().
         u32 video_buffer_render[XRES * YRES];
         DebugWindow debug_windows[NUM_DEBUG_WINDOWS];
         u8 mem_copy[0x10000];

@@ -121,8 +121,11 @@ bool Host::update() {
 
 // --- Main screen ---
 void Host::clear_main_screen(){
-    std::scoped_lock<std::mutex> lock(video_buffer_mutex);
-    std::fill_n(this->video_buffer_render, XRES * YRES, 0xFF000000); // Clear to black
+    {
+        std::scoped_lock<std::mutex> lock(video_buffer_mutex);
+        std::fill_n(this->video_buffer_inter, XRES * YRES, 0xFF000000); // Clear to black
+        memcpy(this->video_buffer_render, this->video_buffer_inter, sizeof(this->video_buffer_inter));
+    }
     video->present(this->video_buffer_render);
 }
 void Host::write_pixel(int x, int y, u32 color){
@@ -131,10 +134,17 @@ void Host::write_pixel(int x, int y, u32 color){
 }
 void Host::sync_video_buffer(){
     std::scoped_lock<std::mutex> lock(video_buffer_mutex);
-    memcpy(this->video_buffer_render, this->video_buffer_ppu, sizeof(this->video_buffer_ppu));
+    memcpy(this->video_buffer_inter, this->video_buffer_ppu, sizeof(this->video_buffer_ppu));
 }
 void Host::main_screen_update(){
-    std::scoped_lock<std::mutex> lock(video_buffer_mutex);
+    // The mutex only has to protect video_buffer_render from being rewritten by
+    // sync_video_buffer() while we read it. present() is left outside on purpose:
+    // it waits for the vsync, and the emulation thread needs this mutex once per
+    // frame.
+    {
+        std::scoped_lock<std::mutex> lock(video_buffer_mutex);
+        memcpy(this->video_buffer_render, this->video_buffer_inter, sizeof(this->video_buffer_inter));
+    }
     video->present(this->video_buffer_render);
 }
 
@@ -431,9 +441,12 @@ Host_ss Host::save_state(){
     return state;
 }
 void Host::load_state(const Host_ss& state){
-    std::scoped_lock<std::mutex> lock(video_buffer_mutex);
-    std::copy(std::begin(state.video_buffer), std::end(state.video_buffer), std::begin(this->video_buffer_ppu));
-    video->present(this->video_buffer_ppu);
+    {
+        std::scoped_lock<std::mutex> lock(video_buffer_mutex);
+        std::copy(std::begin(state.video_buffer), std::end(state.video_buffer), std::begin(this->video_buffer_ppu));
+        memcpy(this->video_buffer_render, this->video_buffer_ppu, sizeof(this->video_buffer_ppu));
+    }
+    video->present(this->video_buffer_render);
 }
 bool Host::open_with_default_app(const char* path){
     return sys->open_with_default_app(path);

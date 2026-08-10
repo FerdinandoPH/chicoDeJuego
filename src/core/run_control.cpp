@@ -5,8 +5,13 @@ void Run_control::request_break(){
 }
 
 bool Run_control::take_break_request(){
-    // exchange and not a load+store: two threads could be asking at the same
-    // time (ESC and Ctrl-C), and the break must happen exactly once.
+    // This runs once per emulated instruction, and almost every time the answer
+    // is no: the plain load is the fast path, and it compiles to an ordinary
+    // read. Only when there really is a request do we pay for the atomic
+    // read-modify-write, which is what guarantees the break happens exactly once
+    // even if ESC and Ctrl-C arrive together.
+    if (!this->break_requested.load(std::memory_order_relaxed))
+        return false;
     return this->break_requested.exchange(false, std::memory_order_relaxed);
 }
 
